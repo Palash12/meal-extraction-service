@@ -101,4 +101,29 @@ describe("enforceSafetyPolicy", () => {
 
     expect(metrics.increment).toHaveBeenCalledWith("null_estimate_responses_total");
   });
+
+  it("can keep low-confidence outputs when the demo flag disables forced abstention", () => {
+    expect(
+      enforceSafetyPolicy(
+        {
+          ...baseInference,
+          confidence: "low",
+          abstainRecommended: false,
+        },
+        "req_demo",
+        {
+          metrics,
+          tracer,
+          forceAbstainOnLowConfidence: false,
+        },
+      ),
+    ).toEqual({
+      status: "ok",
+      policyFlags: [],
+      abstained: false,
+      reason: null,
+      clarifyingQuestion: null,
+      changedOutcome: false,
+    });
+  });
 });

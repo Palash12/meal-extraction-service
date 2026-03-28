@@ -1,4 +1,5 @@
 import { logger } from "../../services/logging/logger";
+import type { DemoObservability } from "../../services/observability/demoObservability";
 import type { MetricsRecorder } from "../../services/observability/metrics";
 import { noOpMetrics } from "../../services/observability/metrics";
 import type { Tracer } from "../../services/observability/tracer";
@@ -18,6 +19,8 @@ const MEDICAL_ADVICE_PATTERNS = [
 export interface OutputGuardrailsDependencies {
   metrics?: MetricsRecorder;
   tracer?: Tracer;
+  demoObservability?: DemoObservability;
+  forceAbstainOnLowConfidence?: boolean;
 }
 
 function includesMedicalAdviceLikeContent(text: string | null): boolean {
@@ -36,6 +39,8 @@ function buildChangedResult(
   requestId: string,
   result: Omit<OutputGuardrailsResult, "changedOutcome">,
   latencyMs: number,
+  demoObservability?: DemoObservability,
+  confidenceLevel?: "low" | "medium" | "high",
 ): OutputGuardrailsResult {
   logger.outputGuardrailApplied({
     request_id: requestId,
@@ -43,6 +48,18 @@ function buildChangedResult(
     abstained: result.abstained,
     reason_code: result.reason,
     latency_ms: latencyMs,
+  });
+  demoObservability?.recordStageDecision({
+    requestId,
+    stage: "output_guardrails",
+    outcome: result.abstained ? "blocked" : "completed",
+    reasonCode: result.reason,
+    confidenceLevel: confidenceLevel ?? null,
+    latencyMs,
+    details: {
+      policy_flag_count: result.policyFlags.length,
+      clarifying_question_present: result.clarifyingQuestion !== null,
+    },
   });
 
   return {
@@ -59,6 +76,8 @@ export function enforceSafetyPolicy(
   const startedAt = Date.now();
   const metrics = dependencies.metrics ?? noOpMetrics;
   const tracer = dependencies.tracer ?? noOpTracer;
+  const demoObservability = dependencies.demoObservability;
+  const forceAbstainOnLowConfidence = dependencies.forceAbstainOnLowConfidence ?? true;
   const policyFlags: PolicyFlag[] = [...result.modelFlags];
 
   tracer.startSpan("output_guardrails", {
@@ -92,10 +111,12 @@ export function enforceSafetyPolicy(
         clarifyingQuestion: null,
       },
       Date.now() - startedAt,
+      demoObservability,
+      result.confidence,
     );
   }
 
-  if (result.abstainRecommended || result.confidence === "low") {
+  if (result.abstainRecommended || (forceAbstainOnLowConfidence && result.confidence === "low")) {
     metrics.increment("abstentions_total");
 
     const nextFlags = appendPolicyFlag(policyFlags, "LOW_CONFIDENCE");
@@ -110,12 +131,27 @@ export function enforceSafetyPolicy(
         clarifyingQuestion: result.clarifyingQuestion,
       },
       Date.now() - startedAt,
+      demoObservability,
+      result.confidence,
     );
   }
 
   if (result.clarifyingQuestion) {
     metrics.increment("clarifications_total");
   }
+
+  demoObservability?.recordStageDecision({
+    requestId,
+    stage: "output_guardrails",
+    outcome: "passed",
+    confidenceLevel: result.confidence,
+    latencyMs: Date.now() - startedAt,
+    details: {
+      policy_flag_count: policyFlags.length,
+      abstain_recommended: result.abstainRecommended,
+      force_abstain_on_low_confidence: forceAbstainOnLowConfidence,
+    },
+  });
 
   return {
     status: "ok",

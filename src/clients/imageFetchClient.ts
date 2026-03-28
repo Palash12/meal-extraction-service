@@ -1,6 +1,7 @@
 import { env } from "../config/env";
 import { AppError } from "../lib/errors";
 import { assertSafeImageUrl } from "../lib/urlSafety";
+import type { DemoObservability } from "../services/observability/demoObservability";
 import { noOpMetrics } from "../services/observability/metrics";
 import { noOpTracer } from "../services/observability/tracer";
 import type { AllowedImageContentType, FetchPolicyConfig } from "../types/config";
@@ -57,12 +58,15 @@ async function readWithTimeout(response: Response, timeoutMs: number): Promise<U
 
 export class ImageFetchClient {
   readonly policy: FetchPolicyConfig;
+  private readonly demoObservability?: DemoObservability;
 
-  constructor(policy: FetchPolicyConfig = DEFAULT_FETCH_POLICY) {
+  constructor(policy: FetchPolicyConfig = DEFAULT_FETCH_POLICY, demoObservability?: DemoObservability) {
     this.policy = policy;
+    this.demoObservability = demoObservability;
   }
 
   async fetchMetadata(imageUrl: string, requestId = "unknown"): Promise<ImageFetchMetadata> {
+    const startedAt = Date.now();
     noOpTracer.startSpan("image_fetch", {
       request_id: requestId,
       stage: "image_fetch",
@@ -72,9 +76,28 @@ export class ImageFetchClient {
 
     try {
       const metadata = await this.fetchWithRedirects(normalizedUrl, 0);
-      noOpMetrics.histogram("stage_latency_ms", 0);
+      const latencyMs = Date.now() - startedAt;
+      noOpMetrics.histogram("stage_latency_ms", latencyMs);
+      this.demoObservability?.recordStageDecision({
+        requestId,
+        stage: "image_fetch",
+        outcome: "accepted",
+        latencyMs,
+        details: {
+          redirect_count: metadata.redirectCount,
+          bytes_sampled: metadata.bytesSampled,
+          content_length: metadata.contentLength ?? 0,
+        },
+      });
       return metadata;
     } catch (error) {
+      this.demoObservability?.recordStageDecision({
+        requestId,
+        stage: "image_fetch",
+        outcome: "error",
+        reasonCode: error instanceof AppError ? error.code : "FETCH_FAILED",
+        latencyMs: Date.now() - startedAt,
+      });
       if (error instanceof AppError) {
         throw error;
       }

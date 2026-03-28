@@ -12,6 +12,7 @@ import { createMealAnalysisRoutes } from "./routes/mealAnalysisRoutes";
 import { createMealRoutes } from "./routes/mealRoutes";
 import { MealAnalysisOrchestrator } from "./pipeline/orchestrator/mealAnalysisOrchestrator";
 import { featureFlags } from "./services/config/featureFlags";
+import { demoObservability } from "./services/observability/demoObservability";
 import { MealExtractionService } from "./services/mealExtractionService";
 import { requestContextMiddleware } from "./services/requestContext/requestContext";
 
@@ -37,10 +38,26 @@ export function createApp(dependencies: AppDependencies = {}): express.Express {
       });
 
       const openAIClient = new OpenAIClient(openai, {
-        inferenceModel: env.OPENAI_MODEL,
+        inferenceModel: featureFlags.inferenceModelOverride ?? env.OPENAI_MODEL,
         moderationModel: env.OPENAI_MODERATION_MODEL,
+        maxOutputTokens: featureFlags.maxOutputTokensOverride,
+      }, {
+        demoObservability,
       });
-      const imageFetchClient = new ImageFetchClient();
+      const imageFetchClient = new ImageFetchClient(
+        {
+          allowedSchemes: ["https"],
+          redirectLimit: env.IMAGE_FETCH_REDIRECT_LIMIT,
+          maxContentLengthBytes:
+            featureFlags.maxFetchSizeMbOverride !== null
+              ? Math.floor(featureFlags.maxFetchSizeMbOverride * 1024 * 1024)
+              : env.IMAGE_FETCH_MAX_CONTENT_LENGTH_BYTES,
+          connectionTimeoutMs: featureFlags.fetchTimeoutMsOverride ?? env.IMAGE_FETCH_CONNECT_TIMEOUT_MS,
+          readTimeoutMs: featureFlags.fetchTimeoutMsOverride ?? env.IMAGE_FETCH_READ_TIMEOUT_MS,
+          allowedContentTypes: ["image/jpeg", "image/png", "image/webp"],
+        },
+        demoObservability,
+      );
 
       return new MealAnalysisOrchestrator({
         imageFetchClient,

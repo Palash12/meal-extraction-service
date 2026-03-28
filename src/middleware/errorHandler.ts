@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 
 import { AppError } from "../lib/errors";
 import { logger } from "../services/logging/logger";
+import { demoObservability } from "../services/observability/demoObservability";
 import { ErrorResponseSchema } from "../schemas/errorResponse";
 
 export function notFoundHandler(request: Request, response: Response): void {
@@ -57,6 +58,12 @@ export function errorHandler(
       abstained: false,
       policy_flag_count: 0,
     });
+    demoObservability.recordRequestOutcome({
+      requestId: request.requestId ?? "unknown",
+      outcome: "rejected",
+      reasonCode: "VALIDATION_ERROR",
+      latencyMs: Date.now() - (request.requestStartedAt ?? Date.now()),
+    });
 
     response.status(400).json(ErrorResponseSchema.parse(payload));
     return;
@@ -110,6 +117,12 @@ export function errorHandler(
           ? (error.details as { policyFlags: unknown[] }).policyFlags.length
           : 0,
     });
+    demoObservability.recordRequestOutcome({
+      requestId: request.requestId ?? "unknown",
+      outcome: error.code === "INPUT_REJECTED" ? "rejected" : "error",
+      reasonCode,
+      latencyMs: Date.now() - (request.requestStartedAt ?? Date.now()),
+    });
 
     response.status(error.statusCode).json(ErrorResponseSchema.parse(payload));
     return;
@@ -130,6 +143,12 @@ export function errorHandler(
     total_latency_ms: Date.now() - (request.requestStartedAt ?? Date.now()),
     abstained: false,
     policy_flag_count: 0,
+  });
+  demoObservability.recordRequestOutcome({
+    requestId: request.requestId ?? "unknown",
+    outcome: "error",
+    reasonCode: "INTERNAL_SERVER_ERROR",
+    latencyMs: Date.now() - (request.requestStartedAt ?? Date.now()),
   });
 
   response.status(500).json(

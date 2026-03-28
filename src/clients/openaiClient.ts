@@ -7,6 +7,7 @@ import { AppError } from "../lib/errors";
 import { normalizeMealInference } from "../pipeline/mealInference/normalizeMealInference";
 import { mealInferenceModelJsonSchema } from "../schemas/mealInferenceModel";
 import { logger } from "../services/logging/logger";
+import type { DemoObservability } from "../services/observability/demoObservability";
 import type { MetricsRecorder } from "../services/observability/metrics";
 import { noOpMetrics } from "../services/observability/metrics";
 import type { Tracer } from "../services/observability/tracer";
@@ -18,16 +19,19 @@ export interface OpenAIClientModels {
   inferenceModel: string;
   moderationModel: string;
   mealInferencePromptVersion?: string;
+  maxOutputTokens?: number | null;
 }
 
 export interface OpenAIClientDependencies {
   metrics?: MetricsRecorder;
   tracer?: Tracer;
+  demoObservability?: DemoObservability;
 }
 
 export class OpenAIClient {
   private readonly metrics: MetricsRecorder;
   private readonly tracer: Tracer;
+  private readonly demoObservability?: DemoObservability;
 
   constructor(
     private readonly openai: OpenAI,
@@ -36,6 +40,7 @@ export class OpenAIClient {
   ) {
     this.metrics = dependencies.metrics ?? noOpMetrics;
     this.tracer = dependencies.tracer ?? noOpTracer;
+    this.demoObservability = dependencies.demoObservability;
   }
 
   getInferenceModel(): string {
@@ -79,7 +84,22 @@ export class OpenAIClient {
       this.metrics.histogram("stage_latency_ms", Date.now() - startedAt);
 
       const result = response.results[0];
+      const usageDetails = {
+        inputTokens: usage.usage?.input_tokens ?? null,
+        outputTokens: usage.usage?.output_tokens ?? null,
+      };
+
       if (!result?.flagged) {
+        this.demoObservability?.recordModelCall({
+          requestId,
+          stage: "unsafe_screening",
+          outcome: "allowed",
+          modelName: this.models.moderationModel,
+          latencyMs: Date.now() - startedAt,
+          inputTokens: usageDetails.inputTokens,
+          outputTokens: usageDetails.outputTokens,
+        });
+
         return {
           allowed: true,
           reasonCode: null,
@@ -94,6 +114,18 @@ export class OpenAIClient {
         policy_flags: ["UNSAFE_IMAGE"],
         model_name: this.models.moderationModel,
         latency_ms: Date.now() - startedAt,
+      });
+      this.demoObservability?.recordModelCall({
+        requestId,
+        stage: "unsafe_screening",
+        outcome: "blocked",
+        modelName: this.models.moderationModel,
+        latencyMs: Date.now() - startedAt,
+        inputTokens: usageDetails.inputTokens,
+        outputTokens: usageDetails.outputTokens,
+        details: {
+          policy_flag_count: 1,
+        },
       });
 
       return {
@@ -110,6 +142,14 @@ export class OpenAIClient {
         retryable: false,
         attempt: 1,
         latency_ms: Date.now() - startedAt,
+      });
+      this.demoObservability?.recordStageDecision({
+        requestId,
+        stage: "unsafe_screening",
+        outcome: "error",
+        reasonCode: "UPSTREAM_INFERENCE_FAILURE",
+        modelName: this.models.moderationModel,
+        latencyMs: Date.now() - startedAt,
       });
       throw new AppError(502, "UPSTREAM_INFERENCE_FAILURE", "Unsafe image screening failed");
     }
@@ -164,6 +204,7 @@ export class OpenAIClient {
             strict: true,
           },
         },
+        max_output_tokens: this.models.maxOutputTokens ?? undefined,
       });
 
       const usage = response as { usage?: { input_tokens?: number; output_tokens?: number } };
@@ -174,9 +215,35 @@ export class OpenAIClient {
         this.metrics.increment("model_output_tokens_total", usage.usage.output_tokens);
       }
 
-      this.metrics.histogram("stage_latency_ms", Date.now() - startedAt);
+      const latencyMs = Date.now() - startedAt;
+      this.metrics.histogram("stage_latency_ms", latencyMs);
 
-      return normalizeMealInference(this.extractInferencePayload(response));
+      const normalized = normalizeMealInference(this.extractInferencePayload(response));
+      const inputTokens = usage.usage?.input_tokens ?? null;
+      const outputTokens = usage.usage?.output_tokens ?? null;
+
+      this.demoObservability?.recordModelCall({
+        requestId: request.request_id ?? "unknown",
+        stage: "meal_inference",
+        outcome: "completed",
+        modelName: this.models.inferenceModel,
+        promptVersion: this.getPromptVersion(),
+        latencyMs,
+        inputTokens,
+        outputTokens,
+      });
+      this.demoObservability?.recordInferenceSummary(request.request_id ?? "unknown", {
+        confidenceLevel: normalized.confidence,
+        abstainRecommended: normalized.abstainRecommended,
+        detectedItemCount: normalized.detectedItems.length,
+        policyFlagCount: normalized.modelFlags.length,
+        hasClarifyingQuestion: normalized.clarifyingQuestion !== null,
+        nutritionEstimatePresent: normalized.nutritionEstimate !== null,
+        modelName: this.models.inferenceModel,
+        promptVersion: this.getPromptVersion(),
+      });
+
+      return normalized;
     } catch (error) {
       this.metrics.increment("model_failures_total");
       logger.upstreamCallFailed({
@@ -186,6 +253,15 @@ export class OpenAIClient {
         retryable: false,
         attempt: 1,
         latency_ms: Date.now() - startedAt,
+      });
+      this.demoObservability?.recordStageDecision({
+        requestId: request.request_id ?? "unknown",
+        stage: "meal_inference",
+        outcome: "error",
+        reasonCode: "UPSTREAM_INFERENCE_FAILURE",
+        modelName: this.models.inferenceModel,
+        promptVersion: this.getPromptVersion(),
+        latencyMs: Date.now() - startedAt,
       });
       throw new AppError(502, "UPSTREAM_INFERENCE_FAILURE", "Meal inference failed");
     }

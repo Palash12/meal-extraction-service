@@ -77,9 +77,15 @@ function createTestApp(options: {
     imageFetchClient: imageFetchClient as never,
     openAIClient: openAIClient as never,
     featureFlags: {
-      disableModerationScreening: false,
-      disableInference: false,
-      forceAbstain: false,
+      demoMode: false,
+      decisionLoggingEnabled: false,
+      enableUnsafeScreening: true,
+      enableOutputGuardrails: true,
+      forceAbstainOnLowConfidence: true,
+      inferenceModelOverride: null,
+      fetchTimeoutMsOverride: null,
+      maxFetchSizeMbOverride: null,
+      maxOutputTokensOverride: null,
       ...options.featureFlags,
     },
   });

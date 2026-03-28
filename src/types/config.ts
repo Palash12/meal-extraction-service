@@ -15,10 +15,17 @@ export interface ModelConfig {
   inferenceModel: string;
   moderationModel: string;
   mealInferencePromptVersion: string;
+  maxOutputTokens?: number | null;
 }
 
 export interface FeatureFlags {
-  disableModerationScreening: boolean;
-  disableInference: boolean;
-  forceAbstain: boolean;
+  demoMode: boolean;
+  decisionLoggingEnabled: boolean;
+  enableUnsafeScreening: boolean;
+  enableOutputGuardrails: boolean;
+  forceAbstainOnLowConfidence: boolean;
+  inferenceModelOverride: string | null;
+  fetchTimeoutMsOverride: number | null;
+  maxFetchSizeMbOverride: number | null;
+  maxOutputTokensOverride: number | null;
 }

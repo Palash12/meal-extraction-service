@@ -16,14 +16,21 @@ export const ModelConfigSchema = z
     inferenceModel: z.string().trim().min(1),
     moderationModel: z.string().trim().min(1),
     mealInferencePromptVersion: z.string().trim().min(1),
+    maxOutputTokens: z.number().int().positive().nullable().optional(),
   })
   .strict();
 
 export const FeatureFlagsSchema = z
   .object({
-    disableModerationScreening: z.boolean(),
-    disableInference: z.boolean(),
-    forceAbstain: z.boolean(),
+    demoMode: z.boolean(),
+    decisionLoggingEnabled: z.boolean(),
+    enableUnsafeScreening: z.boolean(),
+    enableOutputGuardrails: z.boolean(),
+    forceAbstainOnLowConfidence: z.boolean(),
+    inferenceModelOverride: z.string().trim().min(1).nullable(),
+    fetchTimeoutMsOverride: z.number().int().positive().nullable(),
+    maxFetchSizeMbOverride: z.number().positive().nullable(),
+    maxOutputTokensOverride: z.number().int().positive().nullable(),
   })
   .strict();
 

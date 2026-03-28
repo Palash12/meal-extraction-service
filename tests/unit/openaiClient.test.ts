@@ -32,6 +32,7 @@ describe("OpenAIClient", () => {
       {
         inferenceModel: "gpt-5.4-mini",
         moderationModel: "omni-moderation-latest",
+        maxOutputTokens: 300,
       },
       { metrics, tracer },
     );
@@ -85,6 +86,7 @@ describe("OpenAIClient", () => {
       {
         inferenceModel: "gpt-5.4-mini",
         moderationModel: "omni-moderation-latest",
+        maxOutputTokens: 300,
       },
       { metrics, tracer },
     );
@@ -111,6 +113,11 @@ describe("OpenAIClient", () => {
     expect(metrics.increment).toHaveBeenCalledWith("model_calls_total");
     expect(metrics.increment).toHaveBeenCalledWith("model_input_tokens_total", 100);
     expect(metrics.increment).toHaveBeenCalledWith("model_output_tokens_total", 50);
+    expect(openai.responses.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        max_output_tokens: 300,
+      }),
+    );
   });
 
   it("maps inference failures to a stable upstream error", async () => {

@@ -7,6 +7,7 @@ import { MealAnalysisResponseSchema } from "../../schemas/mealAnalysisResponse";
 import { buildFinalResponse } from "../outputGuardrails/buildFinalResponse";
 import { enforceSafetyPolicy } from "../outputGuardrails/enforceSafetyPolicy";
 import type { FeatureFlags } from "../../services/config/featureFlags";
+import { demoObservability } from "../../services/observability/demoObservability";
 import { createStageTimer } from "../../services/observability/stageTimer";
 import { createTraceContext } from "../../services/observability/modelTrace";
 import { noOpMetrics } from "../../services/observability/metrics";
@@ -16,7 +17,7 @@ import { fetchImageMetadata } from "../inputGuardrails/fetchImageMetadata";
 import { validateRequestInput } from "../inputGuardrails/validateRequest";
 import { runMealInference } from "../mealInference/mealInferenceStage";
 import { moderateUnsafeImage } from "../unsafeScreening/moderateUnsafeImage";
-import type { MealAnalysisRequest, MealAnalysisResponse, PolicyFlag } from "../../types/api";
+import type { MealAnalysisRequest, MealAnalysisResponse } from "../../types/api";
 
 export interface MealAnalysisOrchestratorDependencies {
   imageFetchClient: ImageFetchClient;
@@ -40,6 +41,7 @@ export class MealAnalysisOrchestrator {
     noOpTracer.startSpan("http.request", {
       request_id: trace.requestId,
     });
+    demoObservability.recordRequestStarted(trace.requestId);
 
     const request = validateRequestInput(this.attachRequestId(rawRequest, resolvedRequestId));
 
@@ -54,9 +56,19 @@ export class MealAnalysisOrchestrator {
       trace.requestId,
     );
     const inputGuardrails = assessImageUsability(fetchedImage);
-    timer.end("input_guardrails");
+    const inputGuardrailsLatencyMs = timer.end("input_guardrails");
 
     if (!inputGuardrails.accepted) {
+      demoObservability.recordStageDecision({
+        requestId: trace.requestId,
+        stage: "input_guardrails",
+        outcome: "rejected",
+        reasonCode: inputGuardrails.rejectionCode,
+        latencyMs: inputGuardrailsLatencyMs,
+        details: {
+          policy_flag_count: inputGuardrails.policyFlags.length,
+        },
+      });
       throw new AppError(400, "INPUT_REJECTED", inputGuardrails.rejectionReason ?? "Input rejected", {
         reasonCode: inputGuardrails.rejectionCode ?? "INPUT_REJECTED",
         stage: "input_guardrails",
@@ -64,9 +76,18 @@ export class MealAnalysisOrchestrator {
         contentLength: fetchedImage.contentLength,
       });
     }
+    demoObservability.recordStageDecision({
+      requestId: trace.requestId,
+      stage: "input_guardrails",
+      outcome: "accepted",
+      latencyMs: inputGuardrailsLatencyMs,
+      details: {
+        policy_flag_count: inputGuardrails.policyFlags.length,
+      },
+    });
 
     timer.start("unsafe_screening");
-    if (!this.dependencies.featureFlags.disableModerationScreening) {
+    if (this.dependencies.featureFlags.enableUnsafeScreening) {
       const unsafeScreening = await moderateUnsafeImage(
         this.dependencies.openAIClient,
         fetchedImage,
@@ -74,42 +95,89 @@ export class MealAnalysisOrchestrator {
       );
 
       if (!unsafeScreening.allowed) {
-        timer.end("unsafe_screening");
+        const unsafeScreeningLatencyMs = timer.end("unsafe_screening");
+        demoObservability.recordStageDecision({
+          requestId: trace.requestId,
+          stage: "unsafe_screening",
+          outcome: "blocked",
+          reasonCode: unsafeScreening.reasonCode,
+          latencyMs: unsafeScreeningLatencyMs,
+          details: {
+            policy_flag_count: unsafeScreening.policyFlags.length,
+          },
+        });
         throw new AppError(400, "INPUT_REJECTED", "Image contains unsafe or disallowed content", {
           reasonCode: unsafeScreening.reasonCode ?? "UNSAFE_IMAGE",
           stage: "unsafe_screening",
           policyFlags: unsafeScreening.policyFlags,
         });
       }
+
+      demoObservability.recordStageDecision({
+        requestId: trace.requestId,
+        stage: "unsafe_screening",
+        outcome: "allowed",
+        latencyMs: timer.end("unsafe_screening"),
+      });
+    } else {
+      demoObservability.recordStageDecision({
+        requestId: trace.requestId,
+        stage: "unsafe_screening",
+        outcome: "skipped",
+        reasonCode: "DEMO_FLAG_DISABLED",
+        details: {
+          local_demo_only: true,
+        },
+      });
+      timer.end("unsafe_screening");
     }
-    timer.end("unsafe_screening");
 
     timer.start("meal_inference");
-    const inference = this.dependencies.featureFlags.disableInference
-      ? {
-          confidence: "low" as const,
-          detectedItems: [],
-          nutritionEstimate: null,
-          uncertaintyNotes: ["Meal inference is currently unavailable."],
-          clarifyingQuestion: null,
-          abstainRecommended: true,
-          modelFlags: [],
-        }
-      : await runMealInference(this.dependencies.openAIClient, request);
-    timer.end("meal_inference");
+    const inference = await runMealInference(this.dependencies.openAIClient, request);
+    const mealInferenceLatencyMs = timer.end("meal_inference");
+    demoObservability.recordStageDecision({
+      requestId: trace.requestId,
+      stage: "meal_inference",
+      outcome: "completed",
+      confidenceLevel: inference.confidence,
+      modelName: trace.inferenceModel,
+      promptVersion: trace.promptVersion,
+      latencyMs: mealInferenceLatencyMs,
+      details: {
+        model_flag_count: inference.modelFlags.length,
+        detected_item_count: inference.detectedItems.length,
+      },
+    });
 
     timer.start("output_guardrails");
-    const output = this.dependencies.featureFlags.forceAbstain
-      ? {
-          status: "abstained" as const,
-          policyFlags: this.appendPolicyFlag(inference.modelFlags, "FORCED_ABSTENTION"),
-          abstained: true,
-          reason: "FORCED_ABSTENTION",
+    const output = this.dependencies.featureFlags.enableOutputGuardrails
+      ? enforceSafetyPolicy(inference, trace.requestId, {
+          demoObservability,
+          forceAbstainOnLowConfidence: this.dependencies.featureFlags.forceAbstainOnLowConfidence,
+        })
+      : {
+          status: "ok" as const,
+          policyFlags: inference.modelFlags,
+          abstained: false,
+          reason: null,
           clarifyingQuestion: inference.clarifyingQuestion,
-          changedOutcome: true,
-        }
-      : enforceSafetyPolicy(inference, trace.requestId);
-    timer.end("output_guardrails");
+          changedOutcome: false,
+        };
+    const outputGuardrailsLatencyMs = timer.end("output_guardrails");
+
+    if (!this.dependencies.featureFlags.enableOutputGuardrails) {
+      demoObservability.recordStageDecision({
+        requestId: trace.requestId,
+        stage: "output_guardrails",
+        outcome: "skipped",
+        confidenceLevel: inference.confidence,
+        reasonCode: "DEMO_FLAG_DISABLED",
+        latencyMs: outputGuardrailsLatencyMs,
+        details: {
+          local_demo_only: true,
+        },
+      });
+    }
 
     if (output.status === "ok") {
       noOpMetrics.increment("successful_analyses_total");
@@ -148,9 +216,5 @@ export class MealAnalysisOrchestrator {
     }
 
     return randomUUID();
-  }
-
-  private appendPolicyFlag(flags: PolicyFlag[], nextFlag: PolicyFlag): PolicyFlag[] {
-    return flags.includes(nextFlag) ? flags : [...flags, nextFlag];
   }
 }
