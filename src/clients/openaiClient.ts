@@ -1,0 +1,239 @@
+import { readFileSync } from "fs";
+import { join } from "path";
+
+import type OpenAI from "openai";
+
+import { AppError } from "../lib/errors";
+import { normalizeMealInference } from "../pipeline/mealInference/normalizeMealInference";
+import { mealInferenceModelJsonSchema } from "../schemas/mealInferenceModel";
+import { logger } from "../services/logging/logger";
+import type { MetricsRecorder } from "../services/observability/metrics";
+import { noOpMetrics } from "../services/observability/metrics";
+import type { Tracer } from "../services/observability/tracer";
+import { noOpTracer } from "../services/observability/tracer";
+import type { MealAnalysisRequest } from "../types/api";
+import type { MealInferenceResult, UnsafeScreeningResult } from "../types/pipeline";
+
+export interface OpenAIClientModels {
+  inferenceModel: string;
+  moderationModel: string;
+  mealInferencePromptVersion?: string;
+}
+
+export interface OpenAIClientDependencies {
+  metrics?: MetricsRecorder;
+  tracer?: Tracer;
+}
+
+export class OpenAIClient {
+  private readonly metrics: MetricsRecorder;
+  private readonly tracer: Tracer;
+
+  constructor(
+    private readonly openai: OpenAI,
+    private readonly models: OpenAIClientModels,
+    dependencies: OpenAIClientDependencies = {},
+  ) {
+    this.metrics = dependencies.metrics ?? noOpMetrics;
+    this.tracer = dependencies.tracer ?? noOpTracer;
+  }
+
+  getInferenceModel(): string {
+    return this.models.inferenceModel;
+  }
+
+  getModerationModel(): string {
+    return this.models.moderationModel;
+  }
+
+  async screenUnsafeImage(imageUrl: string, requestId = "unknown"): Promise<UnsafeScreeningResult> {
+    const startedAt = Date.now();
+    this.tracer.startSpan("unsafe_screening", {
+      request_id: requestId,
+      stage: "unsafe_screening",
+      model_name: this.models.moderationModel,
+    });
+    this.metrics.increment("model_calls_total");
+
+    try {
+      const response = await this.openai.moderations.create({
+        model: this.models.moderationModel,
+        input: [
+          {
+            type: "image_url",
+            image_url: {
+              url: imageUrl,
+            },
+          },
+        ],
+      });
+
+      const usage = response as { usage?: { input_tokens?: number; output_tokens?: number } };
+      if (usage.usage?.input_tokens) {
+        this.metrics.increment("model_input_tokens_total", usage.usage.input_tokens);
+      }
+      if (usage.usage?.output_tokens) {
+        this.metrics.increment("model_output_tokens_total", usage.usage.output_tokens);
+      }
+
+      this.metrics.histogram("stage_latency_ms", Date.now() - startedAt);
+
+      const result = response.results[0];
+      if (!result?.flagged) {
+        return {
+          allowed: true,
+          reasonCode: null,
+          policyFlags: [],
+        };
+      }
+
+      this.metrics.increment("unsafe_screen_rejections_total");
+      logger.unsafeContentRejected({
+        request_id: requestId,
+        reason_code: "UNSAFE_IMAGE",
+        policy_flags: ["UNSAFE_IMAGE"],
+        model_name: this.models.moderationModel,
+        latency_ms: Date.now() - startedAt,
+      });
+
+      return {
+        allowed: false,
+        reasonCode: "UNSAFE_IMAGE",
+        policyFlags: ["UNSAFE_IMAGE"],
+      };
+    } catch (error) {
+      this.metrics.increment("model_failures_total");
+      logger.upstreamCallFailed({
+        request_id: requestId,
+        upstream: "moderation",
+        error_code: error instanceof Error ? error.name : "UNKNOWN_ERROR",
+        retryable: false,
+        attempt: 1,
+        latency_ms: Date.now() - startedAt,
+      });
+      throw new AppError(502, "UPSTREAM_INFERENCE_FAILURE", "Unsafe image screening failed");
+    }
+  }
+
+  async inferMeal(request: MealAnalysisRequest): Promise<MealInferenceResult> {
+    const startedAt = Date.now();
+    this.tracer.startSpan("meal_inference", {
+      request_id: request.request_id ?? "unknown",
+      stage: "meal_inference",
+      model_name: this.models.inferenceModel,
+      prompt_version: this.getPromptVersion(),
+    });
+    this.metrics.increment("model_calls_total");
+    this.metrics.increment("inference_calls_per_request", 1);
+
+    try {
+      const response = await this.openai.responses.create({
+        model: this.models.inferenceModel,
+        store: false,
+        stream: false,
+        input: [
+          {
+            role: "developer",
+            content: [
+              {
+                type: "input_text",
+                text: this.loadMealInferencePrompt(),
+              },
+            ],
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text: request.user_note ? `User note: ${request.user_note}` : "Analyze the provided meal image.",
+              },
+              {
+                type: "input_image",
+                image_url: request.image_url,
+                detail: "high",
+              },
+            ],
+          },
+        ],
+        text: {
+          format: {
+            type: "json_schema",
+            name: "meal_inference",
+            schema: mealInferenceModelJsonSchema,
+            strict: true,
+          },
+        },
+      });
+
+      const usage = response as { usage?: { input_tokens?: number; output_tokens?: number } };
+      if (usage.usage?.input_tokens) {
+        this.metrics.increment("model_input_tokens_total", usage.usage.input_tokens);
+      }
+      if (usage.usage?.output_tokens) {
+        this.metrics.increment("model_output_tokens_total", usage.usage.output_tokens);
+      }
+
+      this.metrics.histogram("stage_latency_ms", Date.now() - startedAt);
+
+      return normalizeMealInference(this.extractInferencePayload(response));
+    } catch (error) {
+      this.metrics.increment("model_failures_total");
+      logger.upstreamCallFailed({
+        request_id: request.request_id ?? "unknown",
+        upstream: "inference",
+        error_code: error instanceof Error ? error.name : "UNKNOWN_ERROR",
+        retryable: false,
+        attempt: 1,
+        latency_ms: Date.now() - startedAt,
+      });
+      throw new AppError(502, "UPSTREAM_INFERENCE_FAILURE", "Meal inference failed");
+    }
+  }
+
+  private extractInferencePayload(
+    response: Awaited<ReturnType<OpenAI["responses"]["create"]>>,
+  ): unknown {
+    if (
+      "output_text" in response &&
+      typeof response.output_text === "string" &&
+      response.output_text.trim().length > 0
+    ) {
+      return JSON.parse(response.output_text);
+    }
+
+    if ("output" in response) {
+      for (const item of response.output ?? []) {
+        if (!("content" in item) || !Array.isArray(item.content)) {
+          continue;
+        }
+
+        for (const contentItem of item.content) {
+          if (
+            typeof contentItem === "object" &&
+            contentItem !== null &&
+            "type" in contentItem &&
+            contentItem.type === "output_text" &&
+            "text" in contentItem &&
+            typeof contentItem.text === "string"
+          ) {
+            return JSON.parse(contentItem.text);
+          }
+        }
+      }
+    }
+
+    throw new AppError(502, "UPSTREAM_INFERENCE_FAILURE", "Meal inference returned no structured output");
+  }
+
+  private getPromptVersion(): string {
+    return this.models.mealInferencePromptVersion ?? "mealNutritionEstimate.v1";
+  }
+
+  private loadMealInferencePrompt(): string {
+    return readFileSync(
+      join(process.cwd(), "src", "prompts", "mealInference", `${this.getPromptVersion()}.txt`),
+      "utf8",
+    );
+  }
+}
