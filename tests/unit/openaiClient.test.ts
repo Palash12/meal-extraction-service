@@ -37,7 +37,9 @@ describe("OpenAIClient", () => {
       { metrics, tracer },
     );
 
-    await expect(client.screenUnsafeImage("https://example.com/unsafe.jpg")).resolves.toEqual({
+    await expect(
+      client.screenUnsafeImage("https://example.com/unsafe.jpg"),
+    ).resolves.toEqual({
       allowed: false,
       reasonCode: "UNSAFE_IMAGE",
       policyFlags: ["UNSAFE_IMAGE"],
@@ -49,6 +51,52 @@ describe("OpenAIClient", () => {
     );
   });
 
+  it("can force an unsafe rejection in local demo mode without calling moderation", async () => {
+    const openai = {
+      moderations: {
+        create: jest.fn(),
+      },
+      responses: {
+        create: jest.fn(),
+      },
+    };
+
+    const client = new OpenAIClient(
+      openai as never,
+      {
+        inferenceModel: "gpt-5.4-mini",
+        moderationModel: "omni-moderation-latest",
+      },
+      {
+        metrics,
+        tracer,
+        featureFlags: {
+          demoMode: true,
+          decisionLoggingEnabled: true,
+          enableUnsafeScreening: true,
+          enableOutputGuardrails: true,
+          forceAbstainOnLowConfidence: true,
+          inferenceModelOverride: null,
+          fetchTimeoutMsOverride: null,
+          maxFetchSizeMbOverride: null,
+          maxOutputTokensOverride: null,
+          forceUnsafeRejection: true,
+          forceInferenceFailure: false,
+        },
+      },
+    );
+
+    await expect(
+      client.screenUnsafeImage("https://example.com/unsafe.jpg", "req_force_unsafe"),
+    ).resolves.toEqual({
+      allowed: false,
+      reasonCode: "UNSAFE_IMAGE",
+      policyFlags: ["UNSAFE_IMAGE"],
+    });
+
+    expect(openai.moderations.create).not.toHaveBeenCalled();
+  });
+
   it("normalizes structured meal inference output", async () => {
     const openai = {
       moderations: {
@@ -57,21 +105,31 @@ describe("OpenAIClient", () => {
       responses: {
         create: jest.fn().mockResolvedValue({
           output_text: JSON.stringify({
+            mealDetected: true,
+            unsafeOrDisallowedDetected: false,
+            imageUsable: true,
             confidence: "medium",
             detectedItems: [
-              { name: "rice", evidence: "visible", confidence: "high" },
-              { name: "sauce", evidence: "inferred", confidence: "low" },
+              {
+                name: "rice",
+                evidence: "visible",
+                confidence: "high",
+                portionEstimate: 180,
+                portionUnit: "g",
+                reasoningNote: "A mound of rice is clearly visible on the plate.",
+              },
+              {
+                name: "sauce",
+                evidence: "inferred",
+                confidence: "low",
+                portionEstimate: 1,
+                portionUnit: "serving",
+                reasoningNote: "A sauce may be present based on the plated sheen.",
+              },
             ],
-            nutritionEstimate: {
-              calories: { lower: 400, upper: 550 },
-              protein_g: { lower: 20, upper: 28 },
-              carbs_g: { lower: 35, upper: 50 },
-              fat_g: { lower: 12, upper: 20 },
-            },
             uncertaintyNotes: ["Sauce quantity is unclear."],
             clarifyingQuestion: "Was there dressing on the side?",
             abstainRecommended: false,
-            modelFlags: [],
           }),
           usage: {
             input_tokens: 100,
@@ -98,21 +156,45 @@ describe("OpenAIClient", () => {
         user_note: "Looks like rice and chicken",
       }),
     ).resolves.toMatchObject({
+      mealDetected: true,
+      unsafeOrDisallowedDetected: false,
+      imageUsable: true,
       confidence: "medium",
       detectedItems: [
-        { name: "rice", evidence: "visible", confidence: "high" },
-        { name: "sauce", evidence: "inferred", confidence: "low" },
+        expect.objectContaining({
+          name: "rice",
+          evidence: "visible",
+          confidence: "high",
+          portionEstimate: 180,
+          portionUnit: "g",
+        }),
+        expect.objectContaining({
+          name: "sauce",
+          evidence: "inferred",
+          confidence: "low",
+          portionEstimate: 1,
+          portionUnit: "serving",
+        }),
       ],
       clarifyingQuestion: "Was there dressing on the side?",
     });
 
     expect(tracer.startSpan).toHaveBeenCalledWith(
       "meal_inference",
-      expect.objectContaining({ request_id: "req_1", model_name: "gpt-5.4-mini" }),
+      expect.objectContaining({
+        request_id: "req_1",
+        model_name: "gpt-5.4-mini",
+      }),
     );
     expect(metrics.increment).toHaveBeenCalledWith("model_calls_total");
-    expect(metrics.increment).toHaveBeenCalledWith("model_input_tokens_total", 100);
-    expect(metrics.increment).toHaveBeenCalledWith("model_output_tokens_total", 50);
+    expect(metrics.increment).toHaveBeenCalledWith(
+      "model_input_tokens_total",
+      100,
+    );
+    expect(metrics.increment).toHaveBeenCalledWith(
+      "model_output_tokens_total",
+      50,
+    );
     expect(openai.responses.create).toHaveBeenCalledWith(
       expect.objectContaining({
         max_output_tokens: 300,
@@ -147,5 +229,81 @@ describe("OpenAIClient", () => {
     ).rejects.toEqual(
       new AppError(502, "UPSTREAM_INFERENCE_FAILURE", "Meal inference failed"),
     );
+  });
+
+  it("can force an inference failure in local demo mode", async () => {
+    const openai = {
+      moderations: {
+        create: jest.fn(),
+      },
+      responses: {
+        create: jest.fn(),
+      },
+    };
+
+    const client = new OpenAIClient(
+      openai as never,
+      {
+        inferenceModel: "gpt-5.4-mini",
+        moderationModel: "omni-moderation-latest",
+      },
+      {
+        metrics,
+        tracer,
+        featureFlags: {
+          demoMode: true,
+          decisionLoggingEnabled: true,
+          enableUnsafeScreening: true,
+          enableOutputGuardrails: true,
+          forceAbstainOnLowConfidence: true,
+          inferenceModelOverride: null,
+          fetchTimeoutMsOverride: null,
+          maxFetchSizeMbOverride: null,
+          maxOutputTokensOverride: null,
+          forceUnsafeRejection: false,
+          forceInferenceFailure: true,
+        },
+      },
+    );
+
+    await expect(
+      client.inferMeal({
+        image_url: "https://example.com/meal.jpg",
+        request_id: "req_force_failure",
+      }),
+    ).rejects.toEqual(
+      new AppError(502, "UPSTREAM_INFERENCE_FAILURE", "Meal inference failed"),
+    );
+
+    expect(openai.responses.create).not.toHaveBeenCalled();
+  });
+
+  it("returns embeddings for lightweight nutrition fallback matching", async () => {
+    const openai = {
+      moderations: {
+        create: jest.fn(),
+      },
+      embeddings: {
+        create: jest.fn().mockResolvedValue({
+          data: [{ embedding: [0.1, 0.2, 0.3] }],
+        }),
+      },
+      responses: {
+        create: jest.fn(),
+      },
+    };
+
+    const client = new OpenAIClient(
+      openai as never,
+      {
+        inferenceModel: "gpt-5.4-mini",
+        moderationModel: "omni-moderation-latest",
+      },
+      { metrics, tracer },
+    );
+
+    await expect(client.embedTexts(["grilled chicken"])).resolves.toEqual([
+      [0.1, 0.2, 0.3],
+    ]);
   });
 });

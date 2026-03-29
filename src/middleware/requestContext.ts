@@ -16,7 +16,8 @@ export function requestContextMiddleware(
   response: Response,
   next: NextFunction,
 ): void {
-  const requestId = request.body?.request_id ?? request.header("x-request-id") ?? randomUUID();
+  const requestId =
+    request.body?.request_id ?? request.header("x-request-id") ?? randomUUID();
   request.requestId = requestId;
   response.setHeader("x-request-id", requestId);
 

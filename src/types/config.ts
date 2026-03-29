@@ -28,4 +28,6 @@ export interface FeatureFlags {
   fetchTimeoutMsOverride: number | null;
   maxFetchSizeMbOverride: number | null;
   maxOutputTokensOverride: number | null;
+  forceUnsafeRejection: boolean;
+  forceInferenceFailure: boolean;
 }

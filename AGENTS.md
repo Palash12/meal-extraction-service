@@ -1,9 +1,11 @@
 # AGENTS.md
 
 ## Project purpose
+
 This repository implements a backend MVP for an AI-powered meal analysis system for a health-tech mobile application.
 
 Users upload meal images. The backend must:
+
 1. validate the uploaded image
 2. analyze the meal image and infer structured nutritional estimates
 3. apply output safety checks before returning the result
@@ -13,7 +15,9 @@ This product provides nutritional estimates only. It must not provide medical ad
 ---
 
 ## Source of truth
+
 The current codebase uses:
+
 - Node.js
 - TypeScript
 - Express
@@ -26,6 +30,7 @@ Keep the current scaffolding and build within it.
 ---
 
 ## Architecture rules
+
 Use a deterministic backend pipeline with these logical stages:
 
 1. `inputGuardrails`
@@ -34,6 +39,7 @@ Use a deterministic backend pipeline with these logical stages:
 4. `orchestrator`
 
 Do not convert this into:
+
 - an autonomous multi-agent architecture
 - a multi-service distributed system
 - an overengineered framework-heavy workflow
@@ -45,9 +51,11 @@ Each module should have one clear responsibility.
 ---
 
 ## Functional requirements
+
 The system must support:
 
 ### Input guardrails
+
 - validate file type and file size
 - validate that the image is usable
 - screen for non-food images
@@ -55,18 +63,21 @@ The system must support:
 - reject invalid inputs early when possible
 
 ### Meal inference
+
 - analyze meal images with OpenAI models
 - return structured nutritional estimates
 - include confidence and uncertainty where appropriate
 - distinguish visible evidence from inferred assumptions when possible
 
 ### Output guardrails
+
 - prevent diagnosis, treatment, medication, or disease-specific advice
 - prevent claims of medical safety for a user condition
 - allow safe nutritional estimates and uncertainty language
 - support abstention or clarification when confidence is low
 
 ### Orchestration
+
 - run the stages in order
 - stop early on rejected inputs
 - return stable structured responses
@@ -75,6 +86,7 @@ The system must support:
 ---
 
 ## Technical standards
+
 - Language: TypeScript
 - Runtime: Node.js
 - Framework: Express
@@ -83,6 +95,7 @@ The system must support:
 - Config: `.env` with a documented `.env.example`
 
 General rules:
+
 - use TypeScript types everywhere
 - keep functions small and focused
 - avoid deeply nested business logic in route handlers
@@ -94,6 +107,7 @@ General rules:
 ---
 
 ## Project structure guidance
+
 Keep the codebase organized around these responsibilities:
 
 - `routes/` for HTTP request and response handling only
@@ -105,6 +119,7 @@ Keep the codebase organized around these responsibilities:
 - `tests/` for unit and integration tests
 
 Do not mix:
+
 - prompt logic into route files
 - OpenAI API calls across multiple unrelated modules
 - policy enforcement directly into transport code
@@ -112,9 +127,11 @@ Do not mix:
 ---
 
 ## OpenAI integration rules
+
 All OpenAI API calls must go through a single shared client wrapper.
 
 Requirements:
+
 - centralize model configuration
 - centralize retries and error handling
 - centralize logging hooks for model calls
@@ -129,7 +146,9 @@ Do not scatter OpenAI calls across the codebase.
 ---
 
 ## Safety and policy rules
+
 Allowed behavior:
+
 - identify visible food items
 - estimate calories and macronutrients
 - express uncertainty clearly
@@ -137,6 +156,7 @@ Allowed behavior:
 - abstain when confidence is low
 
 Disallowed behavior:
+
 - diagnosis
 - treatment recommendations
 - medication advice
@@ -144,6 +164,7 @@ Disallowed behavior:
 - statements implying clinical certainty from a photo alone
 
 If uncertain, prefer:
+
 1. abstention
 2. clarification
 3. lower-confidence estimate with explicit caveats
@@ -154,9 +175,11 @@ Optimize for safe, bounded, explainable behavior.
 ---
 
 ## API behavior expectations
+
 Responses should be stable and structured.
 
 Prefer fields such as:
+
 - `requestId`
 - `status`
 - `confidence`
@@ -171,6 +194,7 @@ Prefer fields such as:
 Do not add fields that imply medical judgment.
 
 Error handling should clearly distinguish:
+
 - invalid request
 - rejected input
 - upstream inference failure
@@ -179,9 +203,11 @@ Error handling should clearly distinguish:
 ---
 
 ## Logging and observability
+
 Every request should support a request ID.
 
 Log at minimum:
+
 - request ID
 - stage-level timing
 - validation outcomes
@@ -192,6 +218,7 @@ Log at minimum:
 - schema validation failures
 
 Do not log:
+
 - secrets
 - API keys
 - unnecessary sensitive content
@@ -201,9 +228,11 @@ Keep logs structured so they can support future evaluation and monitoring workfl
 ---
 
 ## Testing requirements
+
 When changing behavior, update tests.
 
 Minimum coverage should include:
+
 - invalid file rejection
 - non-food image rejection
 - unsafe-content rejection
@@ -220,9 +249,11 @@ Add integration-style tests for the endpoint once the pipeline is connected.
 ---
 
 ## Prompt management
+
 Store prompts in versioned files under `/prompts`.
 
 Guidelines:
+
 - one prompt file per major task or stage when practical
 - do not bury prompts inside route handlers
 - comment any prompt logic tied to safety or policy
@@ -234,7 +265,9 @@ Prompts are part of the system logic and should be treated as reviewable assets.
 ---
 
 ## Documentation requirements
+
 Update `README.md` whenever any of the following changes:
+
 - architecture
 - API contract
 - environment variables
@@ -243,6 +276,7 @@ Update `README.md` whenever any of the following changes:
 - setup instructions
 
 Document:
+
 - assumptions
 - tradeoffs
 - known limitations
@@ -251,7 +285,9 @@ Document:
 ---
 
 ## Preferred workflow for Codex
+
 For non-trivial changes:
+
 1. inspect the current repo
 2. read `AGENTS.md`
 3. propose a plan first

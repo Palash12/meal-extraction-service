@@ -1,5 +1,11 @@
-import type { MealAnalysisRequest, MealAnalysisResponse } from "../../types/api";
-import type { MealInferenceResult, OutputGuardrailsResult } from "../../types/pipeline";
+import type {
+  MealAnalysisRequest,
+  MealAnalysisResponse,
+} from "../../types/api";
+import type {
+  MealInferenceResult,
+  OutputGuardrailsResult,
+} from "../../types/pipeline";
 
 export function buildFinalResponse(
   request: MealAnalysisRequest,

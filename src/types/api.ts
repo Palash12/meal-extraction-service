@@ -39,7 +39,11 @@ export interface ErrorResponse {
   };
 }
 
-export type MealAnalysisStatus = "ok" | "abstained" | "rejected_input" | "error";
+export type MealAnalysisStatus =
+  | "ok"
+  | "abstained"
+  | "rejected_input"
+  | "error";
 export type PolicyFlag =
   | "UNSAFE_IMAGE"
   | "LOW_CONFIDENCE"

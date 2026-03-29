@@ -1,5 +1,8 @@
 import type { OpenAIClient } from "../../clients/openaiClient";
-import type { ImageFetchMetadata, UnsafeScreeningResult } from "../../types/pipeline";
+import type {
+  ImageFetchMetadata,
+  UnsafeScreeningResult,
+} from "../../types/pipeline";
 
 export async function moderateUnsafeImage(
   openAIClient: OpenAIClient,

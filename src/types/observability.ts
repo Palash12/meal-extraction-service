@@ -100,7 +100,12 @@ export type StructuredLogEvent =
   | UpstreamCallFailedLogEvent;
 
 export interface MetricTags {
-  stage?: "input_guardrails" | "image_fetch" | "unsafe_screening" | "meal_inference" | "output_guardrails";
+  stage?:
+    | "input_guardrails"
+    | "image_fetch"
+    | "unsafe_screening"
+    | "meal_inference"
+    | "output_guardrails";
   upstream?: "moderation" | "inference";
   type?: "moderation" | "meal_inference";
   model?: string;

@@ -2,7 +2,14 @@ import { z } from "zod";
 
 export const PortionEstimateSchema = z
   .object({
-    size: z.enum(["very_small", "small", "medium", "large", "very_large", "unknown"]),
+    size: z.enum([
+      "very_small",
+      "small",
+      "medium",
+      "large",
+      "very_large",
+      "unknown",
+    ]),
     confidence: z.enum(["low", "medium", "high"]),
     notes: z.string().trim().min(1).max(500),
   })
@@ -52,7 +59,14 @@ export const mealExtractionJsonSchema = {
       properties: {
         size: {
           type: "string",
-          enum: ["very_small", "small", "medium", "large", "very_large", "unknown"],
+          enum: [
+            "very_small",
+            "small",
+            "medium",
+            "large",
+            "very_large",
+            "unknown",
+          ],
         },
         confidence: {
           type: "string",

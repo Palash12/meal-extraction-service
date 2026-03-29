@@ -92,7 +92,11 @@ export function errorHandler(
       "stage" in error.details &&
       ((error.details as { stage?: unknown }).stage === "request_validation" ||
         (error.details as { stage?: unknown }).stage === "input_guardrails")
-        ? ((error.details as { stage: "request_validation" | "input_guardrails" }).stage)
+        ? (
+            error.details as {
+              stage: "request_validation" | "input_guardrails";
+            }
+          ).stage
         : "input_guardrails";
 
     if (error.code === "INPUT_REJECTED" && reasonCode !== "UNSAFE_IMAGE") {

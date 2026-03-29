@@ -56,7 +56,9 @@ describe("ImageFetchClient", () => {
 
     const client = new ImageFetchClient();
 
-    await expect(client.fetchMetadata("https://example.com/meal.gif")).rejects.toEqual(
+    await expect(
+      client.fetchMetadata("https://example.com/meal.gif"),
+    ).rejects.toEqual(
       new AppError(400, "INPUT_REJECTED", "Image content type is not allowed"),
     );
   });
@@ -73,8 +75,14 @@ describe("ImageFetchClient", () => {
 
     const client = new ImageFetchClient();
 
-    await expect(client.fetchMetadata("https://example.com/meal.png")).rejects.toEqual(
-      new AppError(400, "INPUT_REJECTED", "Image content length exceeds the maximum allowed size"),
+    await expect(
+      client.fetchMetadata("https://example.com/meal.png"),
+    ).rejects.toEqual(
+      new AppError(
+        400,
+        "INPUT_REJECTED",
+        "Image content length exceeds the maximum allowed size",
+      ),
     );
   });
 

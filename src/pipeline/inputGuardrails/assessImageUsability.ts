@@ -1,9 +1,18 @@
-import type { ImageFetchMetadata, InputGuardrailsResult } from "../../types/pipeline";
+import type {
+  ImageFetchMetadata,
+  InputGuardrailsResult,
+} from "../../types/pipeline";
 
 const MINIMUM_IMAGE_BYTES = 32;
-const ALLOWED_CONTENT_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const ALLOWED_CONTENT_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
 
-export function assessImageUsability(metadata: ImageFetchMetadata): InputGuardrailsResult {
+export function assessImageUsability(
+  metadata: ImageFetchMetadata,
+): InputGuardrailsResult {
   if (!ALLOWED_CONTENT_TYPES.has(metadata.contentType)) {
     return {
       accepted: false,
@@ -15,7 +24,10 @@ export function assessImageUsability(metadata: ImageFetchMetadata): InputGuardra
     };
   }
 
-  if (metadata.contentLength === 0 || metadata.bytesSampled < MINIMUM_IMAGE_BYTES) {
+  if (
+    metadata.contentLength === 0 ||
+    metadata.bytesSampled < MINIMUM_IMAGE_BYTES
+  ) {
     return {
       accepted: false,
       rejectionCode: "INPUT_REJECTED",

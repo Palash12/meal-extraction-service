@@ -5,6 +5,8 @@ export interface ModelTraceContext {
   promptVersion: string | null;
 }
 
-export function createTraceContext(context: ModelTraceContext): ModelTraceContext {
+export function createTraceContext(
+  context: ModelTraceContext,
+): ModelTraceContext {
   return context;
 }

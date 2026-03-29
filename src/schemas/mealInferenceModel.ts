@@ -1,24 +1,28 @@
 import { z } from "zod";
 
-import { ConfidenceLevelSchema, DetectedItemSchema, NutritionRangeSchema } from "./shared";
+import { ConfidenceLevelSchema } from "./shared";
+
+const MealExtractionItemSchema = z
+  .object({
+    name: z.string().trim().min(1),
+    evidence: z.enum(["visible", "inferred"]),
+    confidence: ConfidenceLevelSchema,
+    portionEstimate: z.number().positive(),
+    portionUnit: z.string().trim().min(1),
+    reasoningNote: z.string().trim().min(1),
+  })
+  .strict();
 
 export const MealInferenceModelOutputSchema = z
   .object({
+    mealDetected: z.boolean(),
+    unsafeOrDisallowedDetected: z.boolean(),
+    imageUsable: z.boolean(),
     confidence: ConfidenceLevelSchema,
-    detectedItems: z.array(DetectedItemSchema),
-    nutritionEstimate: z
-      .object({
-        calories: NutritionRangeSchema.nullable(),
-        protein_g: NutritionRangeSchema.nullable(),
-        carbs_g: NutritionRangeSchema.nullable(),
-        fat_g: NutritionRangeSchema.nullable(),
-      })
-      .strict()
-      .nullable(),
+    detectedItems: z.array(MealExtractionItemSchema),
     uncertaintyNotes: z.array(z.string().trim().min(1)),
     clarifyingQuestion: z.string().trim().min(1).nullable(),
     abstainRecommended: z.boolean(),
-    modelFlags: z.array(z.string().trim().min(1)).default([]),
   })
   .strict();
 
@@ -26,15 +30,25 @@ export const mealInferenceModelJsonSchema = {
   type: "object",
   additionalProperties: false,
   required: [
+    "mealDetected",
+    "unsafeOrDisallowedDetected",
+    "imageUsable",
     "confidence",
     "detectedItems",
-    "nutritionEstimate",
     "uncertaintyNotes",
     "clarifyingQuestion",
     "abstainRecommended",
-    "modelFlags",
   ],
   properties: {
+    mealDetected: {
+      type: "boolean",
+    },
+    unsafeOrDisallowedDetected: {
+      type: "boolean",
+    },
+    imageUsable: {
+      type: "boolean",
+    },
     confidence: {
       type: "string",
       enum: ["low", "medium", "high"],
@@ -44,81 +58,23 @@ export const mealInferenceModelJsonSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["name", "evidence", "confidence"],
+        required: [
+          "name",
+          "evidence",
+          "confidence",
+          "portionEstimate",
+          "portionUnit",
+          "reasoningNote",
+        ],
         properties: {
           name: { type: "string" },
           evidence: { type: "string", enum: ["visible", "inferred"] },
           confidence: { type: "string", enum: ["low", "medium", "high"] },
+          portionEstimate: { type: "number", exclusiveMinimum: 0 },
+          portionUnit: { type: "string" },
+          reasoningNote: { type: "string" },
         },
       },
-    },
-    nutritionEstimate: {
-      anyOf: [
-        { type: "null" },
-        {
-          type: "object",
-          additionalProperties: false,
-          required: ["calories", "protein_g", "carbs_g", "fat_g"],
-          properties: {
-            calories: {
-              anyOf: [
-                { type: "null" },
-                {
-                  type: "object",
-                  additionalProperties: false,
-                  required: ["lower", "upper"],
-                  properties: {
-                    lower: { type: "number" },
-                    upper: { type: "number" },
-                  },
-                },
-              ],
-            },
-            protein_g: {
-              anyOf: [
-                { type: "null" },
-                {
-                  type: "object",
-                  additionalProperties: false,
-                  required: ["lower", "upper"],
-                  properties: {
-                    lower: { type: "number" },
-                    upper: { type: "number" },
-                  },
-                },
-              ],
-            },
-            carbs_g: {
-              anyOf: [
-                { type: "null" },
-                {
-                  type: "object",
-                  additionalProperties: false,
-                  required: ["lower", "upper"],
-                  properties: {
-                    lower: { type: "number" },
-                    upper: { type: "number" },
-                  },
-                },
-              ],
-            },
-            fat_g: {
-              anyOf: [
-                { type: "null" },
-                {
-                  type: "object",
-                  additionalProperties: false,
-                  required: ["lower", "upper"],
-                  properties: {
-                    lower: { type: "number" },
-                    upper: { type: "number" },
-                  },
-                },
-              ],
-            },
-          },
-        },
-      ],
     },
     uncertaintyNotes: {
       type: "array",
@@ -130,11 +86,9 @@ export const mealInferenceModelJsonSchema = {
     abstainRecommended: {
       type: "boolean",
     },
-    modelFlags: {
-      type: "array",
-      items: { type: "string" },
-    },
   },
 } as const;
 
-export type MealInferenceModelOutput = z.infer<typeof MealInferenceModelOutputSchema>;
+export type MealInferenceModelOutput = z.infer<
+  typeof MealInferenceModelOutputSchema
+>;

@@ -8,4 +8,6 @@ export const MealAnalysisRequestSchema = z
   })
   .strict();
 
-export type MealAnalysisRequestInput = z.infer<typeof MealAnalysisRequestSchema>;
+export type MealAnalysisRequestInput = z.infer<
+  typeof MealAnalysisRequestSchema
+>;

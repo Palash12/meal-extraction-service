@@ -21,10 +21,13 @@ export const logger = {
     emit({ event: "request_completed", ...event }),
   inputRejected: (event: Omit<InputRejectedLogEvent, "event">): void =>
     emit({ event: "input_rejected", ...event }),
-  unsafeContentRejected: (event: Omit<UnsafeContentRejectedLogEvent, "event">): void =>
-    emit({ event: "unsafe_content_rejected", ...event }),
-  outputGuardrailApplied: (event: Omit<OutputGuardrailAppliedLogEvent, "event">): void =>
-    emit({ event: "output_guardrail_applied", ...event }),
-  upstreamCallFailed: (event: Omit<UpstreamCallFailedLogEvent, "event">): void =>
-    emit({ event: "upstream_call_failed", ...event }),
+  unsafeContentRejected: (
+    event: Omit<UnsafeContentRejectedLogEvent, "event">,
+  ): void => emit({ event: "unsafe_content_rejected", ...event }),
+  outputGuardrailApplied: (
+    event: Omit<OutputGuardrailAppliedLogEvent, "event">,
+  ): void => emit({ event: "output_guardrail_applied", ...event }),
+  upstreamCallFailed: (
+    event: Omit<UpstreamCallFailedLogEvent, "event">,
+  ): void => emit({ event: "upstream_call_failed", ...event }),
 };

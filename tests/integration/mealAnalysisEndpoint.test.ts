@@ -6,9 +6,11 @@ import { createApp } from "../../src/app";
 import { AppError } from "../../src/lib/errors";
 import { MealAnalysisOrchestrator } from "../../src/pipeline/orchestrator/mealAnalysisOrchestrator";
 import type { FeatureFlags } from "../../src/services/config/featureFlags";
-import type { MealInferenceResult } from "../../src/types/pipeline";
+import type { MealExtractionResult } from "../../src/types/pipeline";
 
-function createImageMetadata(overrides: Partial<ReturnType<typeof baseImageMetadata>> = {}) {
+function createImageMetadata(
+  overrides: Partial<ReturnType<typeof baseImageMetadata>> = {},
+) {
   return {
     ...baseImageMetadata(),
     ...overrides,
@@ -33,16 +35,24 @@ function baseImageMetadata() {
   };
 }
 
-function createInferenceResult(overrides: Partial<MealInferenceResult> = {}): MealInferenceResult {
+function createInferenceResult(
+  overrides: Partial<MealExtractionResult> = {},
+): MealExtractionResult {
   return {
+    mealDetected: true,
+    unsafeOrDisallowedDetected: false,
+    imageUsable: true,
     confidence: "medium",
-    detectedItems: [{ name: "salmon", evidence: "visible", confidence: "high" }],
-    nutritionEstimate: {
-      calories: { lower: 450, upper: 550 },
-      protein_g: { lower: 28, upper: 35 },
-      carbs_g: { lower: 18, upper: 26 },
-      fat_g: { lower: 20, upper: 28 },
-    },
+    detectedItems: [
+      {
+        name: "rice",
+        evidence: "visible",
+        confidence: "high",
+        portionEstimate: 200,
+        portionUnit: "g",
+        reasoningNote: "A mound of white rice is clearly visible.",
+      },
+    ],
     uncertaintyNotes: ["Portion size is estimated from a single image."],
     clarifyingQuestion: null,
     abstainRecommended: false,
@@ -58,11 +68,14 @@ function createTestApp(options: {
   featureFlags?: Partial<FeatureFlags>;
 }) {
   const imageFetchClient = {
-    fetchMetadata: options.fetchMetadata ?? jest.fn().mockResolvedValue(createImageMetadata()),
+    fetchMetadata:
+      options.fetchMetadata ??
+      jest.fn().mockResolvedValue(createImageMetadata()),
   };
   const openAIClient = {
     getInferenceModel: jest.fn().mockReturnValue("gpt-test-inference"),
     getModerationModel: jest.fn().mockReturnValue("omni-moderation-test"),
+    embedTexts: jest.fn(),
     screenUnsafeImage:
       options.screenUnsafeImage ??
       jest.fn().mockResolvedValue({
@@ -70,7 +83,8 @@ function createTestApp(options: {
         reasonCode: null,
         policyFlags: [],
       }),
-    inferMeal: options.inferMeal ?? jest.fn().mockResolvedValue(createInferenceResult()),
+    inferMeal:
+      options.inferMeal ?? jest.fn().mockResolvedValue(createInferenceResult()),
   };
 
   const orchestrator = new MealAnalysisOrchestrator({
@@ -86,6 +100,8 @@ function createTestApp(options: {
       fetchTimeoutMsOverride: null,
       maxFetchSizeMbOverride: null,
       maxOutputTokensOverride: null,
+      forceUnsafeRejection: false,
+      forceInferenceFailure: false,
       ...options.featureFlags,
     },
   });
@@ -111,12 +127,14 @@ describe("POST /v1/meals/analyze", () => {
       requestId: response.headers["x-request-id"],
       status: "ok",
       confidence: "medium",
-      detectedItems: [{ name: "salmon", evidence: "visible", confidence: "high" }],
+      detectedItems: [
+        { name: "rice", evidence: "visible", confidence: "high" },
+      ],
       nutritionEstimate: {
-        calories: { lower: 450, upper: 550 },
-        protein_g: { lower: 28, upper: 35 },
-        carbs_g: { lower: 18, upper: 26 },
-        fat_g: { lower: 20, upper: 28 },
+        calories: { lower: 208, upper: 312 },
+        protein_g: { lower: 3.8, upper: 5.8 },
+        carbs_g: { lower: 45.1, upper: 67.7 },
+        fat_g: { lower: 0.5, upper: 0.7 },
       },
       uncertaintyNotes: ["Portion size is estimated from a single image."],
       clarifyingQuestion: null,
@@ -189,10 +207,12 @@ describe("POST /v1/meals/analyze", () => {
     const { app } = createTestApp({
       inferMeal: jest.fn().mockResolvedValue(
         createInferenceResult({
+          mealDetected: false,
           confidence: "low",
-          nutritionEstimate: null,
+          detectedItems: [],
           uncertaintyNotes: ["The meal is partially obscured."],
-          clarifyingQuestion: "Was there an additional side dish outside the frame?",
+          clarifyingQuestion:
+            "Was there an additional side dish outside the frame?",
           abstainRecommended: true,
           modelFlags: ["LOW_CONFIDENCE"],
         }),
@@ -209,10 +229,14 @@ describe("POST /v1/meals/analyze", () => {
       requestId: "req_abstain",
       status: "abstained",
       confidence: "low",
-      detectedItems: [{ name: "salmon", evidence: "visible", confidence: "high" }],
+      detectedItems: [],
       nutritionEstimate: null,
-      uncertaintyNotes: ["The meal is partially obscured."],
-      clarifyingQuestion: "Was there an additional side dish outside the frame?",
+      uncertaintyNotes: [
+        "The meal is partially obscured.",
+        "No clear meal was detected for trusted nutrition grounding.",
+      ],
+      clarifyingQuestion:
+        "Was there an additional side dish outside the frame?",
       policyFlags: ["LOW_CONFIDENCE"],
       abstained: true,
       reason: "LOW_CONFIDENCE",
@@ -221,9 +245,15 @@ describe("POST /v1/meals/analyze", () => {
 
   it("returns a stable upstream failure error", async () => {
     const { app } = createTestApp({
-      inferMeal: jest.fn().mockRejectedValue(
-        new AppError(502, "UPSTREAM_INFERENCE_FAILURE", "Meal inference failed"),
-      ),
+      inferMeal: jest
+        .fn()
+        .mockRejectedValue(
+          new AppError(
+            502,
+            "UPSTREAM_INFERENCE_FAILURE",
+            "Meal inference failed",
+          ),
+        ),
     });
 
     const response = await request(app).post("/v1/meals/analyze").send({

@@ -1,81 +1,221 @@
-# Demo Plan
+# Demo Guide
 
-## Goal
+## Purpose
 
-Use the meal-analysis MVP to explain the tradeoffs between accuracy/usefulness, latency, cost, and safety without changing the public API.
+This guide describes the current demo workflow for the meal-analysis MVP. It reflects the existing implementation and the latest generated report artifacts. It does not propose behavior changes.
 
-## Safe Default
+The demo is useful for showing tradeoffs between:
 
-Start with:
+- accuracy and usefulness
+- latency
+- cost
+- safety
 
-```bash
-DEMO_MODE=false
-DECISION_LOGGING_ENABLED=false
-ENABLE_UNSAFE_SCREENING=true
-ENABLE_OUTPUT_GUARDRAILS=true
-FORCE_ABSTAIN_ON_LOW_CONFIDENCE=true
-```
+## Runtime Shape
 
-This keeps the normal sparse logs and the safest behavior.
+The request path used in the demo is:
 
-## Demo Mode
+1. local validation
+2. bounded fetch from `image_url`
+3. moderation-backed unsafe screening
+4. one main meal inference call
+5. local nutrition grounding
+6. local output guardrails
 
-Turn on richer internal demo logs with:
+## Prerequisites
 
-```bash
-DEMO_MODE=true
-DECISION_LOGGING_ENABLED=true
-```
+- Node.js 20+
+- `npm install`
+- a valid `OPENAI_API_KEY`
+- a local `.env` copied from `.env.example`
 
-This adds bounded structured logs for:
+For individual shell scenario scripts:
 
-- active feature flags
-- stage decisions
-- model-call latency, tokens, and estimated cost
-- inference summaries without raw model output
-- request outcome and aggregate tradeoff snapshots
+- start the app separately with `npm run dev`
 
-## Suggested Demo Sequence
+For the automated report flow:
 
-1. Run with safe defaults and show the lean baseline logs.
-2. Turn on `DEMO_MODE=true` and `DECISION_LOGGING_ENABLED=true` to show:
-   - why a request was accepted, rejected, abstained, or blocked
-   - which stage made the decision
-   - where latency is spent
-   - which model call drives token usage and estimated cost
-3. Change `INFERENCE_MODEL_OVERRIDE` to compare behavior and cost/latency tradeoffs.
-4. Lower `MAX_OUTPUT_TOKENS` to show cost and latency pressure on inference.
-5. Lower `FETCH_TIMEOUT_MS` or `MAX_FETCH_SIZE_MB` to show stricter bounded fetch behavior.
-6. Only if needed for the demo, temporarily set:
-   - `ENABLE_UNSAFE_SCREENING=false`
-   - `ENABLE_OUTPUT_GUARDRAILS=false`
-   - `FORCE_ABSTAIN_ON_LOW_CONFIDENCE=false`
+- no separately running app is required
+- `scripts/demo/run-demo-and-report.sh` starts managed local app instances itself
+- optional local demo settings can be provided in `scripts/demo/demo-report.env`
 
-## Safety Warning
+## Required Environment Variables
 
-The following flags are local-demo-only and must stay at their safe defaults in production:
+Application env:
 
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+- `OPENAI_MODERATION_MODEL`
+- `PORT`
+- `DEMO_MODE`
+- `DECISION_LOGGING_ENABLED`
 - `ENABLE_UNSAFE_SCREENING`
 - `ENABLE_OUTPUT_GUARDRAILS`
 - `FORCE_ABSTAIN_ON_LOW_CONFIDENCE`
+- `INFERENCE_MODEL_OVERRIDE` for model comparison
+- `MAX_OUTPUT_TOKENS` for token-cap comparison
+- `DEMO_FORCE_UNSAFE_REJECTION` for the automated unsafe-rejection scenario
+- `DEMO_FORCE_INFERENCE_FAILURE` for the automated upstream-failure scenario
 
-Never recommend disabling them outside a controlled local demo.
+Shell env for individual demo scripts:
 
-## Redaction Rules
+- `BASE_URL`
+- `DEMO_CLEAR_MEAL_URL`
+- `DEMO_AMBIGUOUS_MEAL_URL`
+- `DEMO_NONFOOD_IMAGE_URL`
 
-The demo logs intentionally do not include:
+Suggested public demo values:
 
-- raw images
-- full image URLs
-- raw user notes
-- full prompts
-- full model outputs
-- secrets, auth headers, or API keys
+```bash
+export DEMO_CLEAR_MEAL_URL="https://upload.wikimedia.org/wikipedia/commons/5/5c/Fried_Rice%2C_Jollof_rice_and_salad%2C_served_with_Grilled_Chicken.jpg"
+export DEMO_AMBIGUOUS_MEAL_URL="https://upload.wikimedia.org/wikipedia/commons/1/18/Fish_Curry_Rice_Plate_%2826138495975%29.jpg"
+export DEMO_NONFOOD_IMAGE_URL="https://upload.wikimedia.org/wikipedia/commons/6/61/Laptop_on_a_desk.jpg"
+```
 
-## What To Point Out Live
+## Local Start For Individual Scripts
 
-- `input_guardrails`: fast local checks and bounded fetch reduce wasted latency/cost.
-- `unsafe_screening`: moderation adds cost and latency but reduces safety risk.
-- `meal_inference`: this is the main cost driver and usually the biggest latency contributor.
-- `output_guardrails`: these preserve safety and can trade off against maximal usefulness by abstaining or blocking.
-- `demo_tradeoff_snapshot`: use this to discuss how requests accumulate into abstention rate, unsafe rejection rate, policy block rate, call counts, tokens, and estimated cost.
+```bash
+cp .env.example .env
+# fill in OPENAI_API_KEY and any local settings
+npm install
+npm run dev
+```
+
+Then:
+
+```bash
+export BASE_URL="${BASE_URL:-http://localhost:3000}"
+```
+
+## Scenario Scripts
+
+Run individually:
+
+```bash
+scripts/demo/demo-success.sh
+scripts/demo/demo-ambiguous.sh
+scripts/demo/demo-input-rejection.sh
+scripts/demo/demo-nonfood.sh
+scripts/demo/demo-model-compare.sh
+scripts/demo/demo-token-cap.sh
+scripts/demo/demo-upstream-failure.sh
+scripts/demo/demo-unsafe-rejection.sh
+```
+
+Run the baseline shell sequence:
+
+```bash
+scripts/demo/run-demo.sh
+```
+
+Run the automated scenario set and collect artifacts:
+
+```bash
+./scripts/demo/run-demo-and-report.sh
+```
+
+Artifacts produced:
+
+- `artifacts/demo/results.json`
+- `artifacts/demo/report.md`
+
+## Current Automated Report Status
+
+Source reviewed:
+
+- `artifacts/demo/report.md`
+
+Latest automated status snapshot:
+
+- baseline success: pass
+- ambiguous meal: pass
+- input rejection: pass
+- non-food image: pass
+- upstream failure: pass
+- unsafe rejection: pass
+- model comparison: pass
+- output token cap comparison: fail
+
+## Scenario Notes
+
+### Baseline Successful Meal Analysis
+
+- Expected current outcome: `200 / ok`
+- Current status in latest report: pass
+- Shows the full path end to end with grounded nutrition output
+
+### Ambiguous Meal
+
+- Expected current outcome: `200 / abstained` or a clarifying question
+- Current status in latest report: pass
+- Useful for showing bounded uncertainty behavior
+
+### Input Rejection
+
+- Expected current outcome: `400 / VALIDATION_ERROR`
+- Current status in latest report: pass
+- Shows local validation rejecting bad input before moderation or inference
+
+### Non-Food Image
+
+- Expected current outcome: cautious behavior rather than deterministic rejection
+- Current status in latest report: pass with `200 / abstained`
+- This is still a limitation discussion point, not a guaranteed dedicated non-food rejection path
+
+### Upstream Failure
+
+- Expected current outcome: `502 / UPSTREAM_INFERENCE_FAILURE`
+- Current status in latest report: pass
+- Automated via `DEMO_FORCE_INFERENCE_FAILURE`
+
+### Unsafe Content Rejection
+
+- Expected current outcome: `400 / INPUT_REJECTED`
+- Current status in latest report: pass
+- Automated via `DEMO_FORCE_UNSAFE_REJECTION`
+
+### Model Comparison
+
+- Expected current outcome: two successful runs with different model names
+- Current status in latest report: pass
+- Latest report shows `gpt-5.4 -> gpt-5.4-mini` with lower latency and lower estimated cost on the override run
+
+### Output Token Cap Comparison
+
+- Intended outcome: two successful runs with different output-token usage
+- Current status in latest report: fail
+- Latest report shows:
+  - default run: `200 / ok`
+  - capped run: `502 / UPSTREAM_INFERENCE_FAILURE`
+- Treat this as a current demo limitation. The docs should not claim this scenario is presentation-ready.
+
+## Log Inspection
+
+Useful events to inspect:
+
+- `request_completed`
+- `input_rejected`
+- `unsafe_content_rejected`
+- `output_guardrail_applied`
+- `upstream_call_failed`
+- `demo_feature_flags`
+- `demo_stage_decision`
+- `demo_model_call`
+- `demo_inference_summary`
+- `demo_request_outcome`
+- `demo_tradeoff_snapshot`
+
+## Known Caveats
+
+- The automated report runner is now functional and writes fresh top-level artifacts.
+- Exact food labels, uncertainty notes, and grounded nutrition notes remain model-dependent and can vary between runs.
+- The token-cap comparison is still unstable with the current capped setting and can produce `UPSTREAM_INFERENCE_FAILURE`.
+- Non-food handling is still best described as cautious abstention behavior rather than deterministic non-food rejection.
+
+## Troubleshooting
+
+- If an individual shell script fails, confirm the app is running and `BASE_URL` is correct.
+- If the automated report runner fails, check `artifacts/demo/*/*.log` for the request-specific scenario logs.
+- If request-scoped logs are missing from a scenario, inspect the corresponding log file under `artifacts/demo/<scenario>/`.
+- If model comparison does not show a model change, confirm `scripts/demo/demo-report.env` is setting a valid `DEMO_COMPARE_MODEL_OVERRIDE`.
+- If output-token-cap comparison is still failing, treat that as a known current limitation rather than a bad invocation.

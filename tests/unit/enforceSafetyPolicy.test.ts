@@ -23,6 +23,7 @@ const baseInference: MealInferenceResult = {
   clarifyingQuestion: null,
   abstainRecommended: false,
   modelFlags: [],
+  groundingMatches: [],
 };
 
 describe("enforceSafetyPolicy", () => {
@@ -63,7 +64,9 @@ describe("enforceSafetyPolicy", () => {
       changedOutcome: true,
     });
 
-    expect(metrics.increment).toHaveBeenCalledWith("low_confidence_responses_total");
+    expect(metrics.increment).toHaveBeenCalledWith(
+      "low_confidence_responses_total",
+    );
     expect(metrics.increment).toHaveBeenCalledWith("abstentions_total");
   });
 
@@ -86,7 +89,9 @@ describe("enforceSafetyPolicy", () => {
       changedOutcome: true,
     });
 
-    expect(metrics.increment).toHaveBeenCalledWith("output_policy_blocks_total");
+    expect(metrics.increment).toHaveBeenCalledWith(
+      "output_policy_blocks_total",
+    );
   });
 
   it("tracks null estimates", () => {
@@ -99,7 +104,9 @@ describe("enforceSafetyPolicy", () => {
       { metrics, tracer },
     );
 
-    expect(metrics.increment).toHaveBeenCalledWith("null_estimate_responses_total");
+    expect(metrics.increment).toHaveBeenCalledWith(
+      "null_estimate_responses_total",
+    );
   });
 
   it("can keep low-confidence outputs when the demo flag disables forced abstention", () => {

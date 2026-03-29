@@ -39,4 +39,6 @@ export const MealAnalysisResponseSchema = z
   })
   .strict();
 
-export type MealAnalysisResponseOutput = z.infer<typeof MealAnalysisResponseSchema>;
+export type MealAnalysisResponseOutput = z.infer<
+  typeof MealAnalysisResponseSchema
+>;

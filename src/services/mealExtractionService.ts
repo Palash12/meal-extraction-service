@@ -43,13 +43,18 @@ function getErrorName(error: unknown): string | undefined {
 export function isTransientOpenAIError(error: unknown): boolean {
   const status = getErrorStatus(error);
   const name = getErrorName(error);
-  return (status !== undefined && TRANSIENT_STATUS_CODES.has(status)) || (name !== undefined && TRANSIENT_ERROR_NAMES.has(name));
+  return (
+    (status !== undefined && TRANSIENT_STATUS_CODES.has(status)) ||
+    (name !== undefined && TRANSIENT_ERROR_NAMES.has(name))
+  );
 }
 
 export class MealExtractionService {
   constructor(private readonly openAIResponsesClient: MealExtractionClient) {}
 
-  async extractMeal(request: MealExtractionRequest): Promise<MealExtractionOutput> {
+  async extractMeal(
+    request: MealExtractionRequest,
+  ): Promise<MealExtractionOutput> {
     try {
       return await retryWithBackoff(
         () => this.openAIResponsesClient.extractMeal(request),
@@ -74,9 +79,14 @@ export class MealExtractionService {
         throw error;
       }
 
-      throw new AppError(502, "UPSTREAM_ERROR", "Meal extraction request failed", {
-        request_id: request.request_id,
-      });
+      throw new AppError(
+        502,
+        "UPSTREAM_ERROR",
+        "Meal extraction request failed",
+        {
+          request_id: request.request_id,
+        },
+      );
     }
   }
 }

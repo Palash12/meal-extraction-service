@@ -18,7 +18,9 @@ export interface ResponsesApi {
 }
 
 export interface MealExtractionClient {
-  extractMeal: (request: MealExtractionRequest) => Promise<MealExtractionOutput>;
+  extractMeal: (
+    request: MealExtractionRequest,
+  ) => Promise<MealExtractionOutput>;
 }
 
 export class OpenAIResponsesClient implements MealExtractionClient {
@@ -27,7 +29,9 @@ export class OpenAIResponsesClient implements MealExtractionClient {
     private readonly model: string,
   ) {}
 
-  async extractMeal(request: MealExtractionRequest): Promise<MealExtractionOutput> {
+  async extractMeal(
+    request: MealExtractionRequest,
+  ): Promise<MealExtractionOutput> {
     const response = await this.responsesApi.create(this.buildRequest(request));
     const payload = this.extractText(response);
 
@@ -40,14 +44,22 @@ export class OpenAIResponsesClient implements MealExtractionClient {
       const parsed = JSON.parse(payload) as unknown;
       return MealExtractionResultSchema.parse(parsed);
     } catch (error) {
-      throw new AppError(502, "UPSTREAM_INVALID_RESPONSE", "OpenAI returned invalid structured output", {
-        cause: error instanceof Error ? error.message : "Unknown parse error",
-      });
+      throw new AppError(
+        502,
+        "UPSTREAM_INVALID_RESPONSE",
+        "OpenAI returned invalid structured output",
+        {
+          cause: error instanceof Error ? error.message : "Unknown parse error",
+        },
+      );
     }
   }
 
   private buildRequest(request: MealExtractionRequest): ResponsesCreateParams {
-    const userContent: Array<{ type: "input_text"; text: string } | { type: "input_image"; image_url: string; detail: "high" }> = [
+    const userContent: Array<
+      | { type: "input_text"; text: string }
+      | { type: "input_image"; image_url: string; detail: "high" }
+    > = [
       {
         type: "input_text",
         text: "Analyze this meal image and return only the requested JSON fields. Do not calculate nutrition.",
@@ -132,6 +144,10 @@ export class OpenAIResponsesClient implements MealExtractionClient {
       }
     }
 
-    throw new AppError(502, "UPSTREAM_EMPTY_RESPONSE", "OpenAI returned no text output");
+    throw new AppError(
+      502,
+      "UPSTREAM_EMPTY_RESPONSE",
+      "OpenAI returned no text output",
+    );
   }
 }

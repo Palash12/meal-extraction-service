@@ -16,8 +16,12 @@ import { assessImageUsability } from "../inputGuardrails/assessImageUsability";
 import { fetchImageMetadata } from "../inputGuardrails/fetchImageMetadata";
 import { validateRequestInput } from "../inputGuardrails/validateRequest";
 import { runMealInference } from "../mealInference/mealInferenceStage";
+import { runNutritionGroundingStage } from "../nutritionGrounding/nutritionGroundingStage";
 import { moderateUnsafeImage } from "../unsafeScreening/moderateUnsafeImage";
-import type { MealAnalysisRequest, MealAnalysisResponse } from "../../types/api";
+import type {
+  MealAnalysisRequest,
+  MealAnalysisResponse,
+} from "../../types/api";
 
 export interface MealAnalysisOrchestratorDependencies {
   imageFetchClient: ImageFetchClient;
@@ -26,9 +30,14 @@ export interface MealAnalysisOrchestratorDependencies {
 }
 
 export class MealAnalysisOrchestrator {
-  constructor(private readonly dependencies: MealAnalysisOrchestratorDependencies) {}
+  constructor(
+    private readonly dependencies: MealAnalysisOrchestratorDependencies,
+  ) {}
 
-  async analyze(rawRequest: unknown, requestId?: string): Promise<MealAnalysisResponse> {
+  async analyze(
+    rawRequest: unknown,
+    requestId?: string,
+  ): Promise<MealAnalysisResponse> {
     const resolvedRequestId = this.resolveRequestId(rawRequest, requestId);
     const timer = createStageTimer();
     const trace = createTraceContext({
@@ -43,7 +52,9 @@ export class MealAnalysisOrchestrator {
     });
     demoObservability.recordRequestStarted(trace.requestId);
 
-    const request = validateRequestInput(this.attachRequestId(rawRequest, resolvedRequestId));
+    const request = validateRequestInput(
+      this.attachRequestId(rawRequest, resolvedRequestId),
+    );
 
     timer.start("input_guardrails");
     noOpTracer.startSpan("input_guardrails", {
@@ -69,12 +80,17 @@ export class MealAnalysisOrchestrator {
           policy_flag_count: inputGuardrails.policyFlags.length,
         },
       });
-      throw new AppError(400, "INPUT_REJECTED", inputGuardrails.rejectionReason ?? "Input rejected", {
-        reasonCode: inputGuardrails.rejectionCode ?? "INPUT_REJECTED",
-        stage: "input_guardrails",
-        contentType: fetchedImage.contentType,
-        contentLength: fetchedImage.contentLength,
-      });
+      throw new AppError(
+        400,
+        "INPUT_REJECTED",
+        inputGuardrails.rejectionReason ?? "Input rejected",
+        {
+          reasonCode: inputGuardrails.rejectionCode ?? "INPUT_REJECTED",
+          stage: "input_guardrails",
+          contentType: fetchedImage.contentType,
+          contentLength: fetchedImage.contentLength,
+        },
+      );
     }
     demoObservability.recordStageDecision({
       requestId: trace.requestId,
@@ -106,11 +122,16 @@ export class MealAnalysisOrchestrator {
             policy_flag_count: unsafeScreening.policyFlags.length,
           },
         });
-        throw new AppError(400, "INPUT_REJECTED", "Image contains unsafe or disallowed content", {
-          reasonCode: unsafeScreening.reasonCode ?? "UNSAFE_IMAGE",
-          stage: "unsafe_screening",
-          policyFlags: unsafeScreening.policyFlags,
-        });
+        throw new AppError(
+          400,
+          "INPUT_REJECTED",
+          "Image contains unsafe or disallowed content",
+          {
+            reasonCode: unsafeScreening.reasonCode ?? "UNSAFE_IMAGE",
+            stage: "unsafe_screening",
+            policyFlags: unsafeScreening.policyFlags,
+          },
+        );
       }
 
       demoObservability.recordStageDecision({
@@ -133,7 +154,10 @@ export class MealAnalysisOrchestrator {
     }
 
     timer.start("meal_inference");
-    const inference = await runMealInference(this.dependencies.openAIClient, request);
+    const inference = await runMealInference(
+      this.dependencies.openAIClient,
+      request,
+    );
     const mealInferenceLatencyMs = timer.end("meal_inference");
     demoObservability.recordStageDecision({
       requestId: trace.requestId,
@@ -149,18 +173,41 @@ export class MealAnalysisOrchestrator {
       },
     });
 
+    timer.start("nutrition_grounding");
+    const groundedInference = await runNutritionGroundingStage(
+      inference,
+      this.dependencies.openAIClient,
+    );
+    const nutritionGroundingLatencyMs = timer.end("nutrition_grounding");
+    demoObservability.recordStageDecision({
+      requestId: trace.requestId,
+      stage: "nutrition_grounding",
+      outcome: "completed",
+      confidenceLevel: groundedInference.confidence,
+      latencyMs: nutritionGroundingLatencyMs,
+      details: {
+        matched_item_count: groundedInference.groundingMatches.filter(
+          (match) => match.canonicalName !== null,
+        ).length,
+        unmatched_item_count: groundedInference.groundingMatches.filter(
+          (match) => match.canonicalName === null,
+        ).length,
+      },
+    });
+
     timer.start("output_guardrails");
     const output = this.dependencies.featureFlags.enableOutputGuardrails
-      ? enforceSafetyPolicy(inference, trace.requestId, {
+      ? enforceSafetyPolicy(groundedInference, trace.requestId, {
           demoObservability,
-          forceAbstainOnLowConfidence: this.dependencies.featureFlags.forceAbstainOnLowConfidence,
+          forceAbstainOnLowConfidence:
+            this.dependencies.featureFlags.forceAbstainOnLowConfidence,
         })
       : {
           status: "ok" as const,
-          policyFlags: inference.modelFlags,
+          policyFlags: groundedInference.modelFlags,
           abstained: false,
           reason: null,
-          clarifyingQuestion: inference.clarifyingQuestion,
+          clarifyingQuestion: groundedInference.clarifyingQuestion,
           changedOutcome: false,
         };
     const outputGuardrailsLatencyMs = timer.end("output_guardrails");
@@ -170,7 +217,7 @@ export class MealAnalysisOrchestrator {
         requestId: trace.requestId,
         stage: "output_guardrails",
         outcome: "skipped",
-        confidenceLevel: inference.confidence,
+        confidenceLevel: groundedInference.confidence,
         reasonCode: "DEMO_FLAG_DISABLED",
         latencyMs: outputGuardrailsLatencyMs,
         details: {
@@ -183,11 +230,20 @@ export class MealAnalysisOrchestrator {
       noOpMetrics.increment("successful_analyses_total");
     }
 
-    return MealAnalysisResponseSchema.parse(buildFinalResponse(request, inference, output));
+    return MealAnalysisResponseSchema.parse(
+      buildFinalResponse(request, groundedInference, output),
+    );
   }
 
-  private attachRequestId(rawRequest: unknown, requestId: string): MealAnalysisRequest {
-    if (rawRequest && typeof rawRequest === "object" && !Array.isArray(rawRequest)) {
+  private attachRequestId(
+    rawRequest: unknown,
+    requestId: string,
+  ): MealAnalysisRequest {
+    if (
+      rawRequest &&
+      typeof rawRequest === "object" &&
+      !Array.isArray(rawRequest)
+    ) {
       return {
         ...(rawRequest as Record<string, unknown>),
         request_id: requestId,

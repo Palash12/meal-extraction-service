@@ -7,9 +7,16 @@ import { demoObservability } from "../services/observability/demoObservability";
 export class MealAnalysisController {
   constructor(private readonly orchestrator: MealAnalysisOrchestrator) {}
 
-  analyzeMeal = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+  analyzeMeal = async (
+    request: Request,
+    response: Response,
+    next: NextFunction,
+  ): Promise<void> => {
     try {
-      const payload = await this.orchestrator.analyze(request.body, request.requestId);
+      const payload = await this.orchestrator.analyze(
+        request.body,
+        request.requestId,
+      );
 
       logger.requestCompleted({
         request_id: payload.requestId,

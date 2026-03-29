@@ -56,9 +56,14 @@ describe("OpenAIResponsesClient", () => {
         image_url: "https://example.com/meal.jpg",
       }),
     ).rejects.toMatchObject(
-      new AppError(502, "UPSTREAM_INVALID_RESPONSE", "OpenAI returned invalid structured output", {
-        cause: expect.any(String),
-      }),
+      new AppError(
+        502,
+        "UPSTREAM_INVALID_RESPONSE",
+        "OpenAI returned invalid structured output",
+        {
+          cause: expect.any(String),
+        },
+      ),
     );
   });
 });

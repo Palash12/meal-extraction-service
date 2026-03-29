@@ -1,4 +1,7 @@
-import type { TraceSpanAttributes, TraceSpanName } from "../../types/observability";
+import type {
+  TraceSpanAttributes,
+  TraceSpanName,
+} from "../../types/observability";
 
 export interface Tracer {
   startSpan: (name: TraceSpanName, attributes?: TraceSpanAttributes) => void;

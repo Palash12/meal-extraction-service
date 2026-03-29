@@ -8,6 +8,7 @@ type DemoStage =
   | "image_fetch"
   | "unsafe_screening"
   | "meal_inference"
+  | "nutrition_grounding"
   | "output_guardrails";
 
 type DemoOutcome =
@@ -32,6 +33,8 @@ interface DemoFeatureFlagsSnapshot {
   fetch_timeout_ms_override: number | null;
   max_fetch_size_mb_override: number | null;
   max_output_tokens_override: number | null;
+  force_unsafe_rejection: boolean;
+  force_inference_failure: boolean;
 }
 
 interface DemoEventBase {
@@ -72,7 +75,9 @@ interface DemoAggregate {
   moderationCalls: number;
   inferenceCalls: number;
   stageLatency: Partial<Record<DemoStage, StageLatencyAggregate>>;
-  tokensByStage: Partial<Record<"unsafe_screening" | "meal_inference", TokenAggregate>>;
+  tokensByStage: Partial<
+    Record<"unsafe_screening" | "meal_inference", TokenAggregate>
+  >;
 }
 
 interface StageDecisionInput {
@@ -121,7 +126,10 @@ const ZERO_AGGREGATE: DemoAggregate = {
 };
 
 // Demo-only pricing table for relative tradeoff discussion. Do not use for billing.
-const DEMO_MODEL_PRICING_USD_PER_1K_TOKENS: Record<string, { input: number; output: number }> = {
+const DEMO_MODEL_PRICING_USD_PER_1K_TOKENS: Record<
+  string,
+  { input: number; output: number }
+> = {
   "gpt-5.4-mini": { input: 0.00015, output: 0.0006 },
   "gpt-5.4": { input: 0.00125, output: 0.005 },
   "omni-moderation-latest": { input: 0.0001, output: 0 },
@@ -143,7 +151,9 @@ function roundCost(costUsd: number | null): number | null {
   return Number(costUsd.toFixed(6));
 }
 
-function createFeatureFlagSnapshot(featureFlags: FeatureFlags): DemoFeatureFlagsSnapshot {
+function createFeatureFlagSnapshot(
+  featureFlags: FeatureFlags,
+): DemoFeatureFlagsSnapshot {
   return {
     demo_mode: featureFlags.demoMode,
     decision_logging_enabled: featureFlags.decisionLoggingEnabled,
@@ -154,6 +164,8 @@ function createFeatureFlagSnapshot(featureFlags: FeatureFlags): DemoFeatureFlags
     fetch_timeout_ms_override: featureFlags.fetchTimeoutMsOverride,
     max_fetch_size_mb_override: featureFlags.maxFetchSizeMbOverride,
     max_output_tokens_override: featureFlags.maxOutputTokensOverride,
+    force_unsafe_rejection: featureFlags.forceUnsafeRejection,
+    force_inference_failure: featureFlags.forceInferenceFailure,
   };
 }
 
@@ -194,7 +206,9 @@ export class DemoObservability {
   }
 
   isDecisionLoggingEnabled(): boolean {
-    return this.featureFlags.demoMode && this.featureFlags.decisionLoggingEnabled;
+    return (
+      this.featureFlags.demoMode && this.featureFlags.decisionLoggingEnabled
+    );
   }
 
   getSafeFeatureFlagSnapshot(): DemoFeatureFlagsSnapshot {
@@ -272,7 +286,9 @@ export class DemoObservability {
     };
     aggregate.inputTokens += input.inputTokens ?? 0;
     aggregate.outputTokens += input.outputTokens ?? 0;
-    aggregate.estimatedCostUsd += estimateCostUsd(input.modelName, input.inputTokens, input.outputTokens) ?? 0;
+    aggregate.estimatedCostUsd +=
+      estimateCostUsd(input.modelName, input.inputTokens, input.outputTokens) ??
+      0;
     this.aggregate.tokensByStage[input.stage] = aggregate;
 
     if (!this.isDecisionLoggingEnabled()) {
@@ -289,21 +305,28 @@ export class DemoObservability {
       latency_ms: input.latencyMs,
       input_tokens: input.inputTokens ?? null,
       output_tokens: input.outputTokens ?? null,
-      estimated_cost_usd: estimateCostUsd(input.modelName, input.inputTokens, input.outputTokens),
+      estimated_cost_usd: estimateCostUsd(
+        input.modelName,
+        input.inputTokens,
+        input.outputTokens,
+      ),
       details: input.details,
     });
   }
 
-  recordInferenceSummary(requestId: string, summary: {
-    confidenceLevel: ConfidenceLevel;
-    abstainRecommended: boolean;
-    detectedItemCount: number;
-    policyFlagCount: number;
-    hasClarifyingQuestion: boolean;
-    nutritionEstimatePresent: boolean;
-    modelName: string;
-    promptVersion: string;
-  }): void {
+  recordInferenceSummary(
+    requestId: string,
+    summary: {
+      confidenceLevel: ConfidenceLevel;
+      abstainRecommended: boolean;
+      detectedItemCount: number;
+      policyFlagCount: number;
+      hasClarifyingQuestion: boolean;
+      nutritionEstimatePresent: boolean;
+      modelName: string;
+      promptVersion: string;
+    },
+  ): void {
     if (!this.isDecisionLoggingEnabled()) {
       return;
     }
@@ -367,22 +390,41 @@ export class DemoObservability {
       outcome: input.outcome,
       details: {
         requests_total: this.aggregate.requestsTotal,
-        successful_analysis_rate: formatRate(this.aggregate.successfulAnalyses, this.aggregate.requestsTotal),
-        abstention_rate: formatRate(this.aggregate.abstentions, this.aggregate.requestsTotal),
-        unsafe_rejection_rate: formatRate(this.aggregate.unsafeRejections, this.aggregate.requestsTotal),
-        policy_block_rate: formatRate(this.aggregate.policyBlocks, this.aggregate.requestsTotal),
+        successful_analysis_rate: formatRate(
+          this.aggregate.successfulAnalyses,
+          this.aggregate.requestsTotal,
+        ),
+        abstention_rate: formatRate(
+          this.aggregate.abstentions,
+          this.aggregate.requestsTotal,
+        ),
+        unsafe_rejection_rate: formatRate(
+          this.aggregate.unsafeRejections,
+          this.aggregate.requestsTotal,
+        ),
+        policy_block_rate: formatRate(
+          this.aggregate.policyBlocks,
+          this.aggregate.requestsTotal,
+        ),
         moderation_call_count: this.aggregate.moderationCalls,
         inference_call_count: this.aggregate.inferenceCalls,
-        unsafe_screening_input_tokens: this.aggregate.tokensByStage.unsafe_screening?.inputTokens ?? 0,
-        unsafe_screening_output_tokens: this.aggregate.tokensByStage.unsafe_screening?.outputTokens ?? 0,
-        meal_inference_input_tokens: this.aggregate.tokensByStage.meal_inference?.inputTokens ?? 0,
-        meal_inference_output_tokens: this.aggregate.tokensByStage.meal_inference?.outputTokens ?? 0,
-        unsafe_screening_estimated_cost_usd: roundCost(
-          this.aggregate.tokensByStage.unsafe_screening?.estimatedCostUsd ?? 0,
-        ) ?? 0,
-        meal_inference_estimated_cost_usd: roundCost(
-          this.aggregate.tokensByStage.meal_inference?.estimatedCostUsd ?? 0,
-        ) ?? 0,
+        unsafe_screening_input_tokens:
+          this.aggregate.tokensByStage.unsafe_screening?.inputTokens ?? 0,
+        unsafe_screening_output_tokens:
+          this.aggregate.tokensByStage.unsafe_screening?.outputTokens ?? 0,
+        meal_inference_input_tokens:
+          this.aggregate.tokensByStage.meal_inference?.inputTokens ?? 0,
+        meal_inference_output_tokens:
+          this.aggregate.tokensByStage.meal_inference?.outputTokens ?? 0,
+        unsafe_screening_estimated_cost_usd:
+          roundCost(
+            this.aggregate.tokensByStage.unsafe_screening?.estimatedCostUsd ??
+              0,
+          ) ?? 0,
+        meal_inference_estimated_cost_usd:
+          roundCost(
+            this.aggregate.tokensByStage.meal_inference?.estimatedCostUsd ?? 0,
+          ) ?? 0,
       },
     });
   }

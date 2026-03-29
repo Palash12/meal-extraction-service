@@ -5,7 +5,10 @@ import { noOpMetrics } from "../../services/observability/metrics";
 import type { Tracer } from "../../services/observability/tracer";
 import { noOpTracer } from "../../services/observability/tracer";
 import type { PolicyFlag } from "../../types/api";
-import type { MealInferenceResult, OutputGuardrailsResult } from "../../types/pipeline";
+import type {
+  MealInferenceResult,
+  OutputGuardrailsResult,
+} from "../../types/pipeline";
 
 const MEDICAL_ADVICE_PATTERNS = [
   /\bdiagnos/i,
@@ -31,7 +34,10 @@ function includesMedicalAdviceLikeContent(text: string | null): boolean {
   return MEDICAL_ADVICE_PATTERNS.some((pattern) => pattern.test(text));
 }
 
-function appendPolicyFlag(flags: PolicyFlag[], nextFlag: PolicyFlag): PolicyFlag[] {
+function appendPolicyFlag(
+  flags: PolicyFlag[],
+  nextFlag: PolicyFlag,
+): PolicyFlag[] {
   return flags.includes(nextFlag) ? flags : [...flags, nextFlag];
 }
 
@@ -77,7 +83,8 @@ export function enforceSafetyPolicy(
   const metrics = dependencies.metrics ?? noOpMetrics;
   const tracer = dependencies.tracer ?? noOpTracer;
   const demoObservability = dependencies.demoObservability;
-  const forceAbstainOnLowConfidence = dependencies.forceAbstainOnLowConfidence ?? true;
+  const forceAbstainOnLowConfidence =
+    dependencies.forceAbstainOnLowConfidence ?? true;
   const policyFlags: PolicyFlag[] = [...result.modelFlags];
 
   tracer.startSpan("output_guardrails", {
@@ -116,7 +123,10 @@ export function enforceSafetyPolicy(
     );
   }
 
-  if (result.abstainRecommended || (forceAbstainOnLowConfidence && result.confidence === "low")) {
+  if (
+    result.abstainRecommended ||
+    (forceAbstainOnLowConfidence && result.confidence === "low")
+  ) {
     metrics.increment("abstentions_total");
 
     const nextFlags = appendPolicyFlag(policyFlags, "LOW_CONFIDENCE");

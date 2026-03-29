@@ -12,11 +12,19 @@ export function assertSafeImageUrl(imageUrl: string): URL {
   }
 
   if (!ALLOWED_SCHEMES.has(parsed.protocol)) {
-    throw new AppError(400, "INPUT_REJECTED", "Only https image URLs are allowed");
+    throw new AppError(
+      400,
+      "INPUT_REJECTED",
+      "Only https image URLs are allowed",
+    );
   }
 
   if (parsed.username || parsed.password) {
-    throw new AppError(400, "INPUT_REJECTED", "Image URL credentials are not allowed");
+    throw new AppError(
+      400,
+      "INPUT_REJECTED",
+      "Image URL credentials are not allowed",
+    );
   }
 
   if (!parsed.hostname) {

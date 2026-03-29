@@ -32,10 +32,24 @@ const EnvSchema = z.object({
   FETCH_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
   MAX_FETCH_SIZE_MB: z.coerce.number().positive().optional(),
   MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().optional(),
+  DEMO_FORCE_UNSAFE_REJECTION: booleanFromEnv.default(false),
+  DEMO_FORCE_INFERENCE_FAILURE: booleanFromEnv.default(false),
   IMAGE_FETCH_REDIRECT_LIMIT: z.coerce.number().int().min(0).default(3),
-  IMAGE_FETCH_MAX_CONTENT_LENGTH_BYTES: z.coerce.number().int().positive().default(10 * 1024 * 1024),
-  IMAGE_FETCH_CONNECT_TIMEOUT_MS: z.coerce.number().int().positive().default(2_000),
-  IMAGE_FETCH_READ_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
+  IMAGE_FETCH_MAX_CONTENT_LENGTH_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(10 * 1024 * 1024),
+  IMAGE_FETCH_CONNECT_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(2_000),
+  IMAGE_FETCH_READ_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5_000),
 });
 
 const env = EnvSchema.parse(process.env);

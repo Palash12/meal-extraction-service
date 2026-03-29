@@ -1,0 +1,445 @@
+[
+  {
+    "id": "food_cooked_chicken_100g",
+    "canonical_name": "cooked chicken",
+    "aliases": [
+      "cooked chicken",
+      "cooked chicken piece",
+      "cooked chicken pieces",
+      "chicken pieces",
+      "plain cooked chicken",
+      "roasted chicken pieces",
+      "cooked chicken breast pieces"
+    ],
+    "serving_unit": "100g",
+    "calories_per_serving": 190,
+    "protein_g_per_serving": 29,
+    "carbs_g_per_serving": 0,
+    "fat_g_per_serving": 8,
+    "tags": ["protein", "meat", "poultry", "cooked"]
+  },
+  {
+    "id": "food_grilled_chicken_breast_100g",
+    "canonical_name": "grilled chicken breast",
+    "aliases": [
+      "grilled chicken",
+      "chicken breast",
+      "grilled chicken breast",
+      "roasted chicken breast",
+      "chicken"
+    ],
+    "serving_unit": "100g",
+    "calories_per_serving": 165,
+    "protein_g_per_serving": 31,
+    "carbs_g_per_serving": 0,
+    "fat_g_per_serving": 3.6,
+    "tags": ["protein", "meat", "grilled", "poultry"]
+  },
+  {
+    "id": "food_chicken_thigh_grilled_100g",
+    "canonical_name": "grilled chicken thigh",
+    "aliases": [
+      "grilled chicken thigh",
+      "chicken thigh",
+      "grilled thigh meat",
+      "grilled chicken thighs"
+    ],
+    "serving_unit": "100g",
+    "calories_per_serving": 209,
+    "protein_g_per_serving": 26,
+    "carbs_g_per_serving": 0,
+    "fat_g_per_serving": 10.9,
+    "tags": ["protein", "meat", "grilled", "poultry"]
+  },
+  {
+    "id": "food_white_rice_cooked_100g",
+    "canonical_name": "cooked white rice",
+    "aliases": [
+      "white rice",
+      "basmati rice",
+      "plain basmati rice",
+      "steamed basmati rice",
+      "rice",
+      "steamed rice",
+      "cooked rice",
+      "plain rice"
+    ],
+    "serving_unit": "100g",
+    "calories_per_serving": 130,
+    "protein_g_per_serving": 2.4,
+    "carbs_g_per_serving": 28.2,
+    "fat_g_per_serving": 0.3,
+    "tags": ["grain", "starch", "rice"]
+  },
+  {
+    "id": "food_fried_rice_100g",
+    "canonical_name": "fried rice",
+    "aliases": [
+      "fried rice",
+      "rice fried with vegetables",
+      "seasoned fried rice",
+      "yellow seasoned rice"
+    ],
+    "serving_unit": "100g",
+    "calories_per_serving": 168,
+    "protein_g_per_serving": 3.5,
+    "carbs_g_per_serving": 30,
+    "fat_g_per_serving": 4.2,
+    "tags": ["grain", "rice", "fried"]
+  },
+  {
+    "id": "food_jollof_rice_100g",
+    "canonical_name": "jollof rice",
+    "aliases": [
+      "jollof rice",
+      "tomato rice",
+      "spiced rice",
+      "red/orange seasoned rice"
+    ],
+    "serving_unit": "100g",
+    "calories_per_serving": 160,
+    "protein_g_per_serving": 3.2,
+    "carbs_g_per_serving": 28,
+    "fat_g_per_serving": 4.1,
+    "tags": ["grain", "rice", "tomato", "spiced"]
+  },
+  {
+    "id": "food_israeli_salad_100g",
+    "canonical_name": "israeli salad",
+    "aliases": [
+      "israeli salad",
+      "cucumber tomato salad",
+      "chopped salad",
+      "salad"
+    ],
+    "serving_unit": "100g",
+    "calories_per_serving": 40,
+    "protein_g_per_serving": 1.2,
+    "carbs_g_per_serving": 5.5,
+    "fat_g_per_serving": 1.5,
+    "tags": ["vegetable", "salad", "fresh"]
+  },
+  {
+    "id": "food_green_salad_100g",
+    "canonical_name": "green salad",
+    "aliases": [
+      "green salad",
+      "mixed salad",
+      "mixed leafy salad",
+      "leafy salad",
+      "leafy greens salad",
+      "side salad",
+      "salad leaves",
+      "salad bowl"
+    ],
+    "serving_unit": "100g",
+    "calories_per_serving": 20,
+    "protein_g_per_serving": 1.5,
+    "carbs_g_per_serving": 3.5,
+    "fat_g_per_serving": 0.2,
+    "tags": ["vegetable", "salad", "greens"]
+  },
+  {
+    "id": "food_spinach_leaves_30g",
+    "canonical_name": "spinach leaves",
+    "aliases": [
+      "spinach leaves",
+      "baby spinach",
+      "fresh spinach",
+      "spinach"
+    ],
+    "serving_unit": "30g",
+    "calories_per_serving": 7,
+    "protein_g_per_serving": 0.9,
+    "carbs_g_per_serving": 1.1,
+    "fat_g_per_serving": 0.1,
+    "tags": ["vegetable", "greens", "leafy"]
+  },
+  {
+    "id": "food_chopped_cucumber_50g",
+    "canonical_name": "chopped cucumber",
+    "aliases": [
+      "chopped cucumber",
+      "cucumber",
+      "diced cucumber",
+      "cucumber pieces"
+    ],
+    "serving_unit": "50g",
+    "calories_per_serving": 8,
+    "protein_g_per_serving": 0.3,
+    "carbs_g_per_serving": 1.9,
+    "fat_g_per_serving": 0.1,
+    "tags": ["vegetable", "fresh", "salad"]
+  },
+  {
+    "id": "food_tomato_60g",
+    "canonical_name": "tomato",
+    "aliases": [
+      "tomato",
+      "chopped tomato",
+      "diced tomato",
+      "tomato pieces"
+    ],
+    "serving_unit": "60g",
+    "calories_per_serving": 11,
+    "protein_g_per_serving": 0.5,
+    "carbs_g_per_serving": 2.4,
+    "fat_g_per_serving": 0.1,
+    "tags": ["vegetable", "fresh", "salad"]
+  },
+  {
+    "id": "food_red_bell_pepper_40g",
+    "canonical_name": "red bell pepper",
+    "aliases": [
+      "red bell pepper",
+      "bell pepper",
+      "chopped red bell pepper",
+      "red pepper"
+    ],
+    "serving_unit": "40g",
+    "calories_per_serving": 12,
+    "protein_g_per_serving": 0.4,
+    "carbs_g_per_serving": 2.9,
+    "fat_g_per_serving": 0.1,
+    "tags": ["vegetable", "pepper", "fresh", "salad"]
+  },
+  {
+    "id": "food_red_onion_20g",
+    "canonical_name": "red onion",
+    "aliases": [
+      "red onion",
+      "sliced red onion",
+      "chopped red onion",
+      "onion"
+    ],
+    "serving_unit": "20g",
+    "calories_per_serving": 8,
+    "protein_g_per_serving": 0.2,
+    "carbs_g_per_serving": 1.8,
+    "fat_g_per_serving": 0,
+    "tags": ["vegetable", "onion", "fresh", "salad"]
+  },
+  {
+    "id": "food_salad_with_dressing_100g",
+    "canonical_name": "salad with dressing",
+    "aliases": [
+      "salad with dressing",
+      "dressed salad",
+      "oily salad"
+    ],
+    "serving_unit": "100g",
+    "calories_per_serving": 85,
+    "protein_g_per_serving": 1.8,
+    "carbs_g_per_serving": 6,
+    "fat_g_per_serving": 6,
+    "tags": ["vegetable", "salad", "dressing"]
+  },
+  {
+    "id": "food_salad_dressing_15g",
+    "canonical_name": "salad dressing",
+    "aliases": [
+      "salad dressing",
+      "salad dressing or oil",
+      "dressing or oil",
+      "oil dressing",
+      "vinaigrette"
+    ],
+    "serving_unit": "15g",
+    "calories_per_serving": 70,
+    "protein_g_per_serving": 0,
+    "carbs_g_per_serving": 1.5,
+    "fat_g_per_serving": 7,
+    "tags": ["dressing", "oil", "salad"]
+  },
+  {
+    "id": "food_pecans_28g",
+    "canonical_name": "pecans",
+    "aliases": [
+      "pecan",
+      "pecans",
+      "pecan pieces",
+      "chopped pecans",
+      "candied pecans"
+    ],
+    "serving_unit": "28g",
+    "calories_per_serving": 196,
+    "protein_g_per_serving": 2.6,
+    "carbs_g_per_serving": 3.9,
+    "fat_g_per_serving": 20.4,
+    "tags": ["nut", "topping", "pecan"]
+  },
+  {
+    "id": "food_dried_cranberries_15g",
+    "canonical_name": "dried cranberries",
+    "aliases": [
+      "dried cranberries",
+      "cranberries",
+      "sweetened dried cranberries",
+      "cranberry pieces"
+    ],
+    "serving_unit": "15g",
+    "calories_per_serving": 49,
+    "protein_g_per_serving": 0,
+    "carbs_g_per_serving": 13,
+    "fat_g_per_serving": 0.1,
+    "tags": ["fruit", "dried fruit", "topping"]
+  },
+  {
+    "id": "food_pumpkin_seeds_10g",
+    "canonical_name": "pumpkin seeds",
+    "aliases": [
+      "pumpkin seeds",
+      "pepitas",
+      "roasted pumpkin seeds",
+      "seed topping"
+    ],
+    "serving_unit": "10g",
+    "calories_per_serving": 56,
+    "protein_g_per_serving": 3,
+    "carbs_g_per_serving": 1.5,
+    "fat_g_per_serving": 4.8,
+    "tags": ["seed", "topping", "nutrient-dense"]
+  },
+  {
+    "id": "food_fish_curry_100g",
+    "canonical_name": "fish curry",
+    "aliases": [
+      "fish curry",
+      "curried fish",
+      "fish in curry sauce",
+      "curry fish"
+    ],
+    "serving_unit": "100g",
+    "calories_per_serving": 160,
+    "protein_g_per_serving": 16,
+    "carbs_g_per_serving": 5,
+    "fat_g_per_serving": 8,
+    "tags": ["protein", "fish", "curry", "sauce"]
+  },
+  {
+    "id": "food_butter_chicken_150g",
+    "canonical_name": "butter chicken",
+    "aliases": [
+      "butter chicken",
+      "murgh makhani",
+      "chicken makhani",
+      "creamy tomato chicken curry",
+      "butter chicken curry"
+    ],
+    "serving_unit": "150g",
+    "calories_per_serving": 290,
+    "protein_g_per_serving": 20,
+    "carbs_g_per_serving": 10,
+    "fat_g_per_serving": 18,
+    "tags": ["protein", "meat", "poultry", "curry", "sauce", "indian"]
+  },
+  {
+    "id": "food_naan_60g",
+    "canonical_name": "naan",
+    "aliases": [
+      "naan",
+      "plain naan",
+      "butter naan",
+      "garlic naan",
+      "naan bread"
+    ],
+    "serving_unit": "60g",
+    "calories_per_serving": 190,
+    "protein_g_per_serving": 6,
+    "carbs_g_per_serving": 31,
+    "fat_g_per_serving": 5,
+    "tags": ["bread", "flatbread", "indian", "naan"]
+  },
+  {
+    "id": "food_curry_sauce_50g",
+    "canonical_name": "curry sauce",
+    "aliases": [
+      "curry sauce",
+      "sauce",
+      "gravy",
+      "curry gravy"
+    ],
+    "serving_unit": "50g",
+    "calories_per_serving": 60,
+    "protein_g_per_serving": 1,
+    "carbs_g_per_serving": 5,
+    "fat_g_per_serving": 4,
+    "tags": ["sauce", "curry"]
+  },
+  {
+    "id": "food_tomato_cucumber_salad_100g",
+    "canonical_name": "tomato cucumber salad",
+    "aliases": [
+      "tomato cucumber salad",
+      "cucumber tomato salad",
+      "vegetable salad"
+    ],
+    "serving_unit": "100g",
+    "calories_per_serving": 28,
+    "protein_g_per_serving": 1.1,
+    "carbs_g_per_serving": 5.1,
+    "fat_g_per_serving": 0.3,
+    "tags": ["vegetable", "salad", "fresh"]
+  },
+  {
+    "id": "food_grilled_chicken_leg_quarter_150g",
+    "canonical_name": "grilled chicken leg quarter",
+    "aliases": [
+      "grilled chicken leg",
+      "grilled chicken quarter",
+      "grilled chicken piece"
+    ],
+    "serving_unit": "150g",
+    "calories_per_serving": 320,
+    "protein_g_per_serving": 30,
+    "carbs_g_per_serving": 0,
+    "fat_g_per_serving": 22,
+    "tags": ["protein", "meat", "grilled", "poultry"]
+  },
+  {
+    "id": "food_fried_chicken_drumstick_120g",
+    "canonical_name": "fried chicken drumstick",
+    "aliases": [
+      "fried chicken drumstick",
+      "fried chicken drumsticks",
+      "fried drumstick",
+      "crispy chicken drumstick"
+    ],
+    "serving_unit": "120g",
+    "calories_per_serving": 260,
+    "protein_g_per_serving": 23,
+    "carbs_g_per_serving": 8,
+    "fat_g_per_serving": 15,
+    "tags": ["protein", "meat", "fried", "poultry"]
+  },
+  {
+    "id": "food_coleslaw_100g",
+    "canonical_name": "coleslaw",
+    "aliases": [
+      "coleslaw",
+      "creamy coleslaw-style salad",
+      "coleslaw-style salad",
+      "creamy slaw"
+    ],
+    "serving_unit": "100g",
+    "calories_per_serving": 152,
+    "protein_g_per_serving": 1.2,
+    "carbs_g_per_serving": 14,
+    "fat_g_per_serving": 10,
+    "tags": ["salad", "dressing", "vegetable"]
+  },
+  {
+    "id": "food_pineapple_juice_240ml",
+    "canonical_name": "pineapple juice",
+    "aliases": [
+      "pineapple juice",
+      "juice"
+    ],
+    "serving_unit": "240ml",
+    "calories_per_serving": 130,
+    "protein_g_per_serving": 1,
+    "carbs_g_per_serving": 33,
+    "fat_g_per_serving": 0.2,
+    "tags": ["drink", "juice", "fruit"]
+  }
+]

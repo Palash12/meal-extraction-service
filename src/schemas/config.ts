@@ -7,7 +7,9 @@ export const FetchPolicyConfigSchema = z
     maxContentLengthBytes: z.number().int().positive(),
     connectionTimeoutMs: z.number().int().positive(),
     readTimeoutMs: z.number().int().positive(),
-    allowedContentTypes: z.array(z.enum(["image/jpeg", "image/png", "image/webp"])).min(1),
+    allowedContentTypes: z
+      .array(z.enum(["image/jpeg", "image/png", "image/webp"]))
+      .min(1),
   })
   .strict();
 
@@ -31,6 +33,8 @@ export const FeatureFlagsSchema = z
     fetchTimeoutMsOverride: z.number().int().positive().nullable(),
     maxFetchSizeMbOverride: z.number().positive().nullable(),
     maxOutputTokensOverride: z.number().int().positive().nullable(),
+    forceUnsafeRejection: z.boolean(),
+    forceInferenceFailure: z.boolean(),
   })
   .strict();
 

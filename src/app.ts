@@ -37,13 +37,19 @@ export function createApp(dependencies: AppDependencies = {}): express.Express {
         // TODO: Replace direct env-based key loading with production secret management.
       });
 
-      const openAIClient = new OpenAIClient(openai, {
-        inferenceModel: featureFlags.inferenceModelOverride ?? env.OPENAI_MODEL,
-        moderationModel: env.OPENAI_MODERATION_MODEL,
-        maxOutputTokens: featureFlags.maxOutputTokensOverride,
-      }, {
-        demoObservability,
-      });
+      const openAIClient = new OpenAIClient(
+        openai,
+        {
+          inferenceModel:
+            featureFlags.inferenceModelOverride ?? env.OPENAI_MODEL,
+          moderationModel: env.OPENAI_MODERATION_MODEL,
+          maxOutputTokens: featureFlags.maxOutputTokensOverride,
+        },
+        {
+          demoObservability,
+          featureFlags,
+        },
+      );
       const imageFetchClient = new ImageFetchClient(
         {
           allowedSchemes: ["https"],
@@ -52,8 +58,12 @@ export function createApp(dependencies: AppDependencies = {}): express.Express {
             featureFlags.maxFetchSizeMbOverride !== null
               ? Math.floor(featureFlags.maxFetchSizeMbOverride * 1024 * 1024)
               : env.IMAGE_FETCH_MAX_CONTENT_LENGTH_BYTES,
-          connectionTimeoutMs: featureFlags.fetchTimeoutMsOverride ?? env.IMAGE_FETCH_CONNECT_TIMEOUT_MS,
-          readTimeoutMs: featureFlags.fetchTimeoutMsOverride ?? env.IMAGE_FETCH_READ_TIMEOUT_MS,
+          connectionTimeoutMs:
+            featureFlags.fetchTimeoutMsOverride ??
+            env.IMAGE_FETCH_CONNECT_TIMEOUT_MS,
+          readTimeoutMs:
+            featureFlags.fetchTimeoutMsOverride ??
+            env.IMAGE_FETCH_READ_TIMEOUT_MS,
           allowedContentTypes: ["image/jpeg", "image/png", "image/webp"],
         },
         demoObservability,
@@ -70,7 +80,10 @@ export function createApp(dependencies: AppDependencies = {}): express.Express {
     // TODO: Replace direct env-based key loading with production secret management.
   });
   const analysisController = new MealAnalysisController(orchestrator);
-  const extractionClient = new OpenAIResponsesClient(openai.responses, env.OPENAI_MODEL);
+  const extractionClient = new OpenAIResponsesClient(
+    openai.responses,
+    env.OPENAI_MODEL,
+  );
   const extractionService = new MealExtractionService(extractionClient);
   const extractionController = new MealExtractionController(extractionService);
 
