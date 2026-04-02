@@ -3,6 +3,6 @@ import { env } from "./config/env";
 
 const app = createApp();
 
-app.listen(env.PORT, () => {
+app.listen(env.PORT, env.HOST, () => {
   void app;
 });

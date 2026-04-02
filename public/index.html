@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meal Analysis Demo</title>
+    <meta
+      name="description"
+      content="A tiny demo UI for logging meal-analysis inputs, outputs, and safety outcomes."
+    />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="module" src="/app.js" defer></script>
+  </head>
+  <body>
+    <div class="backdrop backdrop-a"></div>
+    <div class="backdrop backdrop-b"></div>
+
+    <main class="shell">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Meal analysis demo</p>
+          <h1>Log the request. Show the response. Keep the story simple.</h1>
+          <p class="lede">
+            One page, one backend, three scenarios. The UI shows exactly what
+            was sent, what came back, and the short trace in between.
+          </p>
+        </div>
+
+        <div class="hero-actions">
+          <button id="run-demo-button" class="primary-button" type="button">
+            Run demo
+          </button>
+          <button id="reset-button" class="secondary-button" type="button">
+            Reset
+          </button>
+          <div class="status-pill" id="demo-status">Ready</div>
+        </div>
+
+        <div class="hero-meta">
+          <div class="meta-card">
+            <span class="meta-label">API</span>
+            <span class="meta-value">POST /v1/meals/analyze</span>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">Mode</span>
+            <span class="meta-value">gpt-5.4-mini demo run</span>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">Capture</span>
+            <span class="meta-value">Browser recording friendly</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="layout">
+        <aside class="rail">
+          <div class="section-heading">
+            <span class="eyebrow">Scenarios</span>
+            <h2>Three fixed runs</h2>
+          </div>
+          <div id="scenario-list" class="scenario-list"></div>
+        </aside>
+
+        <section class="workspace">
+          <div class="panel panel-large">
+            <div class="panel-header">
+              <div>
+                <span class="eyebrow">Input</span>
+                <h2>What the app sends</h2>
+              </div>
+              <div class="panel-chip" id="input-summary">Waiting to run</div>
+            </div>
+            <div class="panel-body">
+              <div class="panel-subtitle" id="scenario-note">
+                Select a scenario or run the full demo.
+              </div>
+              <div class="code-box">
+                <pre id="request-json">{}</pre>
+              </div>
+              <div class="inline-note" id="request-headers"></div>
+            </div>
+          </div>
+
+          <div class="panel panel-large panel-output">
+            <div class="panel-header">
+              <div>
+                <span class="eyebrow">Output</span>
+                <h2>What comes back</h2>
+              </div>
+              <div class="panel-chip panel-chip-muted" id="output-summary">
+                Waiting to run
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="result-grid" id="result-grid">
+                <div class="result-card">
+                  <span class="result-label">Status</span>
+                  <strong id="result-status">-</strong>
+                </div>
+                <div class="result-card">
+                  <span class="result-label">Confidence</span>
+                  <strong id="result-confidence">-</strong>
+                </div>
+                <div class="result-card">
+                  <span class="result-label">Detected items</span>
+                  <strong id="result-items">-</strong>
+                </div>
+                <div class="result-card">
+                  <span class="result-label">Calories</span>
+                  <strong id="result-calories">-</strong>
+                </div>
+              </div>
+              <div class="code-box code-box-output">
+                <pre id="response-json">{}</pre>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="panel trace-panel">
+        <div class="panel-header">
+          <div>
+            <span class="eyebrow">Trace</span>
+            <h2>Clean request log</h2>
+          </div>
+          <div class="panel-chip panel-chip-muted" id="trace-summary">
+            No events yet
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="trace-list" class="trace-list"></div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

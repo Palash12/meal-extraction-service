@@ -76,32 +76,31 @@ npm run build
 
 ## Demo
 
-For individual scenario scripts, start the app separately:
+For the UI demo, start the app and open `http://localhost:3000`:
 
 ```bash
-cp .env.example .env
-# fill in OPENAI_API_KEY
-npm install
-npm run dev
+bash scripts/demo/run-ui-demo.sh
 ```
 
-Then, in another shell:
+Then click `Run demo` in the browser. The page logs the request JSON, response JSON, and short trace for:
 
-```bash
-export BASE_URL=http://localhost:3000
-export DEMO_CLEAR_MEAL_URL="https://upload.wikimedia.org/wikipedia/commons/5/5c/Fried_Rice%2C_Jollof_rice_and_salad%2C_served_with_Grilled_Chicken.jpg"
-export DEMO_AMBIGUOUS_MEAL_URL="https://upload.wikimedia.org/wikipedia/commons/1/18/Fish_Curry_Rice_Plate_%2826138495975%29.jpg"
-export DEMO_NONFOOD_IMAGE_URL="https://upload.wikimedia.org/wikipedia/commons/6/61/Laptop_on_a_desk.jpg"
-scripts/demo/run-demo.sh
-```
+- clear meal success
+- non-food abstention
+- unsafe-content rejection
 
-For the automated report flow, the runner manages its own app instances and reads `scripts/demo/demo-report.env` if present:
+For the terminal-only fallback, run the automated scenario set and collect artifacts:
 
 ```bash
 ./scripts/demo/run-demo-and-report.sh
 ```
 
-This writes:
+For the 30-second voiceover capture, run the three canonical automated scenarios in sequence and stream their JSON output live:
+
+```bash
+bash scripts/demo/run-voiceover-demo.sh
+```
+
+This also writes:
 
 - `artifacts/demo/results.json`
 - `artifacts/demo/report.md`

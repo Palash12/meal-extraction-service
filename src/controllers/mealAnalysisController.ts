@@ -4,6 +4,18 @@ import type { MealAnalysisOrchestrator } from "../pipeline/orchestrator/mealAnal
 import { logger } from "../services/logging/logger";
 import { demoObservability } from "../services/observability/demoObservability";
 
+function parseDemoHeader(value: string | string[] | undefined): boolean {
+  if (Array.isArray(value)) {
+    return value.some((item) => parseDemoHeader(item));
+  }
+
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
+}
+
 export class MealAnalysisController {
   constructor(private readonly orchestrator: MealAnalysisOrchestrator) {}
 
@@ -13,9 +25,19 @@ export class MealAnalysisController {
     next: NextFunction,
   ): Promise<void> => {
     try {
+      const demoOverrides = {
+        forceUnsafeRejection: parseDemoHeader(
+          request.header("x-demo-force-unsafe-rejection"),
+        ),
+        forceInferenceFailure: parseDemoHeader(
+          request.header("x-demo-force-inference-failure"),
+        ),
+      };
+
       const payload = await this.orchestrator.analyze(
         request.body,
         request.requestId,
+        demoOverrides,
       );
 
       logger.requestCompleted({

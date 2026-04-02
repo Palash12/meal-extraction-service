@@ -12,6 +12,8 @@ import { dirname, join, resolve } from "path";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
+import { createInterface } from "node:readline/promises";
+import { stdin as processStdin, stdout as processStdout } from "node:process";
 import dotenv from "dotenv";
 
 const require = createRequire(import.meta.url);
@@ -53,6 +55,12 @@ const compareModelOverride =
   process.env.DEMO_COMPARE_MODEL_OVERRIDE ??
   (baselineModel === "gpt-5.4" ? "gpt-5.4-mini" : "gpt-5.4");
 const tokenCapOverride = process.env.DEMO_COMPARE_MAX_OUTPUT_TOKENS ?? "240";
+const reportScenarioSet = (process.env.DEMO_REPORT_SCENARIO_SET ?? "full")
+  .trim()
+  .toLowerCase();
+const emitScriptOutput = process.env.DEMO_EMIT_SCRIPT_OUTPUT === "true";
+const stepDelayMs = Number(process.env.DEMO_STEP_DELAY_MS ?? 0);
+const interactiveMode = parseBoolean(process.env.DEMO_INTERACTIVE);
 
 let nextPort = Number(process.env.DEMO_REPORT_BASE_PORT ?? 3210);
 
@@ -218,23 +226,38 @@ const comparisonScenarioDefinitions = [
 ];
 
 async function main() {
+  const scenarioPlan = getScenarioPlan(reportScenarioSet);
+
+  await demoPause(`Starting demo scenario set: ${reportScenarioSet}`);
+  console.log(`Running demo scenario set: ${reportScenarioSet}`);
+
   const results = [];
 
-  for (const definition of singleScenarioDefinitions) {
-    results.push(await runSingleScenario(definition));
+  for (const definition of scenarioPlan.singleScenarioDefinitions) {
+    const result = await runSingleScenario(definition);
+    results.push(result);
+    console.log(formatScenarioSummary(result));
+    await demoPause(`Proceeding to the next scenario after ${result.key}.`);
   }
 
-  for (const definition of comparisonScenarioDefinitions) {
-    results.push(await runComparisonScenario(definition));
+  for (const definition of scenarioPlan.comparisonScenarioDefinitions) {
+    const result = await runComparisonScenario(definition);
+    results.push(result);
+    console.log(formatScenarioSummary(result));
+    await demoPause(`Proceeding to the next scenario after ${result.key}.`);
   }
 
+  await demoPause("Writing demo results.json.");
   writeFileSync(
     join(artifactDir, "results.json"),
     JSON.stringify(results, null, 2),
   );
+  await demoPause("Writing demo report.md.");
   writeFileSync(join(artifactDir, "report.md"), buildReport(results));
 
+  await demoPause("Announcing demo artifacts.");
   console.log(`Wrote artifacts/demo/results.json`);
+  await demoPause("Reviewing report artifact output.");
   console.log(`Wrote artifacts/demo/report.md`);
 }
 
@@ -325,6 +348,11 @@ function formatSingleActualOutcome(run) {
   return `HTTP ${run.httpStatus ?? "-"} without a parseable payload`;
 }
 
+function formatScenarioSummary(result) {
+  const status = result.summary?.httpAndStatus ?? "no summary";
+  return `Scenario complete: ${result.key} (${result.pass}) -> ${status}`;
+}
+
 async function runManagedScript({
   scenarioDir,
   label,
@@ -359,7 +387,7 @@ async function runManagedScript({
       REQUEST_ID: requestId,
       ARTIFACT_RESPONSE_FILE: responsePath,
       ARTIFACT_STATUS_FILE: statusPath,
-    });
+    }, emitScriptOutput || interactiveMode);
   });
 
   const logText = existsSync(logPath) ? readFileSync(logPath, "utf8") : "";
@@ -379,6 +407,34 @@ async function runManagedScript({
     performance: logFields.performance,
     logFields,
   };
+}
+
+function getScenarioPlan(name) {
+  if (name === "full") {
+    return {
+      singleScenarioDefinitions,
+      comparisonScenarioDefinitions,
+    };
+  }
+
+  if (name === "voiceover") {
+    const voiceoverKeys = new Set([
+      "baseline-success",
+      "nonfood",
+      "unsafe-rejection",
+    ]);
+
+    return {
+      singleScenarioDefinitions: singleScenarioDefinitions.filter((definition) =>
+        voiceoverKeys.has(definition.key),
+      ),
+      comparisonScenarioDefinitions: [],
+    };
+  }
+
+  throw new Error(
+    `Unsupported DEMO_REPORT_SCENARIO_SET value: ${name}. Use "full" or "voiceover".`,
+  );
 }
 
 function resolveScenarioImageUrl(script) {
@@ -429,21 +485,32 @@ async function withManagedApp(logPath, env, fn) {
   }
 }
 
-async function runScript(command, env) {
+async function runScript(command, env, mirrorOutput = false) {
+  const stdio = mirrorOutput
+    ? ["inherit", "pipe", "pipe"]
+    : ["ignore", "pipe", "pipe"];
   const child = spawn(command, {
     cwd: repoRoot,
     env,
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio,
   });
 
   let stdout = "";
   let stderr = "";
 
   child.stdout.on("data", (chunk) => {
-    stdout += String(chunk);
+    const text = String(chunk);
+    stdout += text;
+    if (mirrorOutput) {
+      process.stdout.write(text);
+    }
   });
   child.stderr.on("data", (chunk) => {
-    stderr += String(chunk);
+    const text = String(chunk);
+    stderr += text;
+    if (mirrorOutput) {
+      process.stderr.write(text);
+    }
   });
 
   const exitCode = await new Promise((resolveExit, rejectExit) => {
@@ -543,6 +610,34 @@ function relativeToRoot(path) {
 
 function sleep(ms) {
   return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
+}
+
+async function demoPause(prompt) {
+  if (interactiveMode && processStdin.isTTY && processStdout.isTTY) {
+    const rl = createInterface({
+      input: processStdin,
+      output: processStdout,
+    });
+    await rl.question(`${prompt} Press Enter to continue...`);
+    rl.close();
+    return;
+  }
+
+  if (Number.isFinite(stepDelayMs) && stepDelayMs > 0) {
+    await sleep(stepDelayMs);
+  }
+}
+
+function parseBoolean(value) {
+  switch ((value ?? "").trim().toLowerCase()) {
+    case "1":
+    case "true":
+    case "yes":
+    case "on":
+      return true;
+    default:
+      return false;
+  }
 }
 
 const keepAlive = setInterval(() => {

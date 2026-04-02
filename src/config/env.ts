@@ -19,6 +19,7 @@ const booleanFromEnv = z.preprocess((value) => {
 
 const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
+  HOST: z.string().min(1).default("::"),
   OPENAI_API_KEY: z.string().min(1),
   OPENAI_MODEL: z.string().min(1).default("gpt-5.4-mini"),
   OPENAI_MODERATION_MODEL: z.string().min(1).default("omni-moderation-latest"),

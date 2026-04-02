@@ -1,5 +1,6 @@
 import express from "express";
 import OpenAI from "openai";
+import { resolve } from "path";
 
 import { ImageFetchClient } from "./clients/imageFetchClient";
 import { OpenAIClient } from "./clients/openaiClient";
@@ -22,7 +23,13 @@ export interface AppDependencies {
 
 export function createApp(dependencies: AppDependencies = {}): express.Express {
   const app = express();
+  const publicDir = resolve(process.cwd(), "public");
 
+  app.get("/__demo_ready__", (_request, response) => {
+    response.status(200).json({ status: "ready" });
+  });
+
+  app.use(express.static(publicDir));
   app.use(express.json({ limit: "1mb" }));
   app.use(requestContextMiddleware);
 

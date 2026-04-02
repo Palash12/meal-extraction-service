@@ -11,6 +11,7 @@ import { demoObservability } from "../../services/observability/demoObservabilit
 import { createStageTimer } from "../../services/observability/stageTimer";
 import { createTraceContext } from "../../services/observability/modelTrace";
 import { noOpMetrics } from "../../services/observability/metrics";
+import { logger } from "../../services/logging/logger";
 import { noOpTracer } from "../../services/observability/tracer";
 import { assessImageUsability } from "../inputGuardrails/assessImageUsability";
 import { fetchImageMetadata } from "../inputGuardrails/fetchImageMetadata";
@@ -29,6 +30,11 @@ export interface MealAnalysisOrchestratorDependencies {
   featureFlags: FeatureFlags;
 }
 
+export interface MealAnalysisDemoOverrides {
+  forceUnsafeRejection?: boolean;
+  forceInferenceFailure?: boolean;
+}
+
 export class MealAnalysisOrchestrator {
   constructor(
     private readonly dependencies: MealAnalysisOrchestratorDependencies,
@@ -37,6 +43,7 @@ export class MealAnalysisOrchestrator {
   async analyze(
     rawRequest: unknown,
     requestId?: string,
+    demoOverrides: MealAnalysisDemoOverrides = {},
   ): Promise<MealAnalysisResponse> {
     const resolvedRequestId = this.resolveRequestId(rawRequest, requestId);
     const timer = createStageTimer();
@@ -103,6 +110,34 @@ export class MealAnalysisOrchestrator {
     });
 
     timer.start("unsafe_screening");
+    if (demoOverrides.forceUnsafeRejection && this.dependencies.featureFlags.demoMode) {
+      const unsafeScreeningLatencyMs = timer.end("unsafe_screening");
+      logger.unsafeContentRejected({
+        request_id: trace.requestId,
+        reason_code: "UNSAFE_IMAGE",
+        policy_flags: ["UNSAFE_IMAGE"],
+        model_name: trace.moderationModel ?? "demo-moderation",
+        latency_ms: unsafeScreeningLatencyMs,
+      });
+      demoObservability.recordStageDecision({
+        requestId: trace.requestId,
+        stage: "unsafe_screening",
+        outcome: "blocked",
+        reasonCode: "UNSAFE_IMAGE",
+        latencyMs: unsafeScreeningLatencyMs,
+        details: {
+          local_demo_only: true,
+          forced_rejection: true,
+          policy_flag_count: 1,
+        },
+      });
+      throw new AppError(400, "INPUT_REJECTED", "Image contains unsafe or disallowed content", {
+        reasonCode: "UNSAFE_IMAGE",
+        stage: "unsafe_screening",
+        policyFlags: ["UNSAFE_IMAGE"],
+      });
+    }
+
     if (this.dependencies.featureFlags.enableUnsafeScreening) {
       const unsafeScreening = await moderateUnsafeImage(
         this.dependencies.openAIClient,
@@ -154,6 +189,26 @@ export class MealAnalysisOrchestrator {
     }
 
     timer.start("meal_inference");
+    if (demoOverrides.forceInferenceFailure && this.dependencies.featureFlags.demoMode) {
+      const inferenceLatencyMs = timer.end("meal_inference");
+      demoObservability.recordStageDecision({
+        requestId: trace.requestId,
+        stage: "meal_inference",
+        outcome: "error",
+        reasonCode: "UPSTREAM_INFERENCE_FAILURE",
+        latencyMs: inferenceLatencyMs,
+        details: {
+          local_demo_only: true,
+          forced_failure: true,
+        },
+      });
+      throw new AppError(
+        502,
+        "UPSTREAM_INFERENCE_FAILURE",
+        "Meal inference failed",
+      );
+    }
+
     const inference = await runMealInference(
       this.dependencies.openAIClient,
       request,

@@ -114,6 +114,25 @@ function createTestApp(options: {
 }
 
 describe("POST /v1/meals/analyze", () => {
+  it("serves the demo UI at the root path", async () => {
+    const { app } = createTestApp({});
+
+    const response = await request(app).get("/");
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain("Meal analysis demo");
+    expect(response.text).toContain("Run demo");
+  });
+
+  it("exposes a readiness endpoint for managed demo runs", async () => {
+    const { app } = createTestApp({});
+
+    const response = await request(app).get("/__demo_ready__");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ status: "ready" });
+  });
+
   it("returns a successful analysis with a generated request id", async () => {
     const { app, imageFetchClient, openAIClient } = createTestApp({});
 
@@ -200,6 +219,34 @@ describe("POST /v1/meals/analyze", () => {
         retryable: false,
       },
     });
+    expect(openAIClient.inferMeal).not.toHaveBeenCalled();
+  });
+
+  it("supports a request-scoped unsafe demo override for the UI flow", async () => {
+    const { app, openAIClient } = createTestApp({
+      featureFlags: {
+        demoMode: true,
+      },
+    });
+
+    const response = await request(app)
+      .post("/v1/meals/analyze")
+      .set("x-demo-force-unsafe-rejection", "true")
+      .send({
+        image_url: "https://example.com/meal.jpg",
+        request_id: "req_demo_unsafe",
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      requestId: "req_demo_unsafe",
+      error: {
+        code: "INPUT_REJECTED",
+        message: "Image contains unsafe or disallowed content",
+        retryable: false,
+      },
+    });
+    expect(openAIClient.screenUnsafeImage).not.toHaveBeenCalled();
     expect(openAIClient.inferMeal).not.toHaveBeenCalled();
   });
 

@@ -87,6 +87,18 @@ Then:
 export BASE_URL="${BASE_URL:-http://localhost:3000}"
 ```
 
+For the browser UI demo:
+
+1. open `http://localhost:3000`
+2. click `Run demo`
+3. capture the input panel, output panel, and trace panel as the scenarios complete
+
+Recommended launch command:
+
+```bash
+bash scripts/demo/run-ui-demo.sh
+```
+
 ## Scenario Scripts
 
 Run individually:
@@ -114,10 +126,46 @@ Run the automated scenario set and collect artifacts:
 ./scripts/demo/run-demo-and-report.sh
 ```
 
-Artifacts produced:
+Fast mode:
+
+```bash
+bash scripts/demo/run-demo-and-report.sh
+```
+
+Run the three-scenario voiceover capture with live JSON output:
+
+```bash
+bash scripts/demo/run-voiceover-demo.sh
+```
+
+This automated capture runs only:
+
+- clear meal -> successful analysis on `gpt-5.4-mini`
+- non-food image -> fast abstention
+- unsafe content -> blocked before inference
+
+It also writes:
 
 - `artifacts/demo/results.json`
 - `artifacts/demo/report.md`
+
+Slower presentation mode:
+
+```bash
+DEMO_STEP_DELAY_MS=1200 bash scripts/demo/run-voiceover-demo.sh
+```
+
+Interactive presentation mode:
+
+```bash
+DEMO_INTERACTIVE=true bash scripts/demo/run-voiceover-demo.sh
+```
+
+Notes:
+
+- `DEMO_STEP_DELAY_MS` adds a pause between scenario labels, request execution, response display, and report summary lines.
+- `DEMO_INTERACTIVE=true` pauses at the same checkpoints and waits for Enter when the terminal is interactive.
+- You can combine them, but interactive mode takes precedence when a terminal is available.
 
 ## Current Automated Report Status
 
@@ -173,6 +221,7 @@ Latest automated status snapshot:
 - Expected current outcome: `400 / INPUT_REJECTED`
 - Current status in latest report: pass
 - Automated via `DEMO_FORCE_UNSAFE_REJECTION`
+- In the browser UI, this scenario uses a request-scoped demo override header so the same page can run all three scenarios in one session
 
 ### Model Comparison
 
